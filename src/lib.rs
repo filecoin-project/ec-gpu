@@ -107,16 +107,13 @@ where
     return src;
 }
 
-pub fn common() -> String {
-    COMMON_SRC.to_string()
-}
-
 pub fn field<F>(name: &str) -> String
 where
     F: PrimeField,
 {
     return format!(
-        "{}\n{}\n{}\n{}\n",
+        "{}\n{}\n{}\n{}\n{}\n",
+        COMMON_SRC,
         params::<F>(name),
         field_add_sub::<F>(name, false),
         field_add_sub::<F>(name, true),

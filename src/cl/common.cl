@@ -1,3 +1,6 @@
+#ifndef COMMON_CL
+#define COMMON_CL
+
 #ifdef __NV_CL_C_VERSION
 #define NVIDIA
 #endif
@@ -42,3 +45,5 @@ limb add_with_carry(limb a, limb *b) {
     return lo;
   #endif
 }
+
+#endif
