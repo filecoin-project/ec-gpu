@@ -1,6 +1,8 @@
 // FinalityLabs - 2019
 // Arbitrary size prime-field arithmetic library (add, sub, mul, pow)
 
+#define FIELD_BITS (FIELD_LIMBS * LIMB_BITS)
+
 // Greater than or equal
 bool FIELD_gte(FIELD a, FIELD b) {
   for(char i = FIELD_LIMBS - 1; i >= 0; i--){
@@ -109,4 +111,19 @@ FIELD FIELD_pow_lookup(__global FIELD *bases, uint exponent) {
     i++;
   }
   return res;
+}
+
+// Get `i`th bit (From most significant digit) of the field.
+bool FIELD_get_bit(FIELD l, uint i) {
+  return (l.val[FIELD_LIMBS - 1 - i / LIMB_BITS] >> (LIMB_BITS - 1 - (i % LIMB_BITS))) & 1;
+}
+
+// Get `window` consecutive bits, (Starting from `skip`th bit) from the field.
+uint FIELD_get_bits(FIELD l, uint skip, uint window) {
+  uint ret = 0;
+  for(uint i = 0; i < window; i++) {
+    ret <<= 1;
+    ret |= FIELD_get_bit(l, skip + i);
+  }
+  return ret;
 }
