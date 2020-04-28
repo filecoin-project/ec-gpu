@@ -1,6 +1,7 @@
 use ff::PrimeField;
 use itertools::join;
 
+static COMMON_SRC: &str = include_str!("cl/field.cl");
 static FIELD_SRC: &str = include_str!("cl/field.cl");
 
 /// Divide anything into 64bit chunks
@@ -106,6 +107,10 @@ where
     return src;
 }
 
+pub fn common() -> String {
+    COMMON_SRC.to_string()
+}
+
 pub fn field<F>(name: &str) -> String
 where
     F: PrimeField,
@@ -119,7 +124,5 @@ where
     );
 }
 
-
 #[cfg(test)]
-mod tests {
-}
+mod tests {}
