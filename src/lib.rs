@@ -1,7 +1,7 @@
 use ff::PrimeField;
 use itertools::join;
 
-static COMMON_SRC: &str = include_str!("cl/field.cl");
+static COMMON_SRC: &str = include_str!("cl/common.cl");
 static FIELD_SRC: &str = include_str!("cl/field.cl");
 
 /// Divide anything into 64bit chunks
