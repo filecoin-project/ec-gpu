@@ -62,49 +62,53 @@ where
     );
 }
 
-fn field_add_sub<F>(name: &str, is_sub: bool) -> String
+fn field_add_sub<F>(name: &str) -> String
 where
     F: PrimeField,
 {
-    let op = if is_sub { "sub" } else { "add" };
-    let one = F::one();
-    let len = limbs_of(&one).len();
-    let mut src = String::from(format!(
-        "{} {}_{}_({} a, {} b) {{\n",
-        name, name, op, name, name
-    ));
+    let mut result = String::new();
+    for op in &["sub", "add"] {
+        let one = F::one();
+        let len = limbs_of(&one).len();
+        let mut src = String::from(format!(
+            "{} {}_{}_({} a, {} b) {{\n",
+            name, name, op, name, name
+        ));
 
-    if len > 1 {
-        src.push_str("asm(");
-        src.push_str(format!("\"{}.cc.u64 %0, %0, %{};\\r\\n\"\n", op, len).as_str());
-        for i in 1..len - 1 {
+        if len > 1 {
+            src.push_str("asm(");
+            src.push_str(format!("\"{}.cc.u64 %0, %0, %{};\\r\\n\"\n", op, len).as_str());
+            for i in 1..len - 1 {
+                src.push_str(
+                    format!("\"{}c.cc.u64 %{}, %{}, %{};\\r\\n\"\n", op, i, i, len + i).as_str(),
+                );
+            }
             src.push_str(
-                format!("\"{}c.cc.u64 %{}, %{}, %{};\\r\\n\"\n", op, i, i, len + i).as_str(),
+                format!(
+                    "\"{}c.u64 %{}, %{}, %{};\\r\\n\"\n",
+                    op,
+                    len - 1,
+                    len - 1,
+                    2 * len - 1
+                )
+                .as_str(),
             );
-        }
-        src.push_str(
-            format!(
-                "\"{}c.u64 %{}, %{}, %{};\\r\\n\"\n",
-                op,
-                len - 1,
-                len - 1,
-                2 * len - 1
-            )
-            .as_str(),
-        );
-        src.push_str(":");
-        let inps = join((0..len).map(|n| format!("\"+l\"(a.val[{}])", n)), ", ");
-        src.push_str(inps.as_str());
+            src.push_str(":");
+            let inps = join((0..len).map(|n| format!("\"+l\"(a.val[{}])", n)), ", ");
+            src.push_str(inps.as_str());
 
-        src.push_str("\n:");
-        let outs = join((0..len).map(|n| format!("\"l\"(b.val[{}])", n)), ", ");
-        src.push_str(outs.as_str());
-        src.push_str(");\n");
+            src.push_str("\n:");
+            let outs = join((0..len).map(|n| format!("\"l\"(b.val[{}])", n)), ", ");
+            src.push_str(outs.as_str());
+            src.push_str(");\n");
+        }
+
+        src.push_str("return a;\n}\n");
+
+        result.push_str(&src);
     }
 
-    src.push_str("return a;\n}\n");
-
-    return src;
+    result
 }
 
 pub fn field<F>(name: &str) -> String
@@ -112,11 +116,10 @@ where
     F: PrimeField,
 {
     return format!(
-        "{}\n{}\n{}\n{}\n{}\n",
+        "{}\n{}\n{}\n{}\n",
         COMMON_SRC,
         params::<F>(name),
-        field_add_sub::<F>(name, false),
-        field_add_sub::<F>(name, true),
+        field_add_sub::<F>(name),
         String::from(FIELD_SRC).replace("FIELD", name)
     );
 }
