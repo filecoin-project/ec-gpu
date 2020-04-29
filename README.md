@@ -6,7 +6,16 @@ Notes:
  - Limbs are 64-bit long.
  - The library assumes that the most significant bit of your prime-field is unset. This allows for cheap reductions.
 
-Interface:
+## Usage
+
+Generating OpenCL codes for Bls12-381 Fr elements:
+
+```rust
+use paired::bls12_381::Fr;
+let src = ff_cl_gen::field::<Fr>("Fr");
+```
+
+Generated interface (`FIELD` is substituted with `Fr`):
 
 ```c
 typedef ulong limb;
