@@ -15,3 +15,4 @@ itertools = { version = "0.8.0" }
 
 [dev-dependencies]
 ocl = { version = "0.19.4", package = "fil-ocl"}
+paired = { version = "0.18.0" }

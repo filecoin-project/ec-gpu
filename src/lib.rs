@@ -115,5 +115,26 @@ where
     .replace("FIELD", name)
 }
 
-#[cfg(test)]
-mod tests {}
+#[test]
+fn test_exp() {
+    static TEST_SRC: &str = include_str!("cl/test.cl");
+
+    use ocl::ProQue;
+    use paired::bls12_381::Fr;
+    let src = format!("{}\n{}", field::<Fr>("Fr"), TEST_SRC);
+    let pro_que = ProQue::builder().src(src).dims(1).build().unwrap();
+
+    let mut cpu_buffer = vec![0u32];
+    let buffer = pro_que.create_buffer::<u32>().unwrap();
+    buffer.write(&cpu_buffer).enq().unwrap();
+
+    let kernel = pro_que.kernel_builder("test").arg(&buffer).build().unwrap();
+
+    unsafe {
+        kernel.enq().unwrap();
+    }
+
+    buffer.read(&mut cpu_buffer).enq().unwrap();
+
+    assert_eq!(cpu_buffer[0], 1u32);
+}
