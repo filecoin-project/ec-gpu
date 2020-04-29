@@ -5,12 +5,13 @@ static COMMON_SRC: &str = include_str!("cl/common.cl");
 static FIELD_SRC: &str = include_str!("cl/field.cl");
 
 /// Divide anything into 64bit chunks
-fn limbs_of<T>(value: &T) -> &[u64] {
+fn limbs_of<T>(value: T) -> Vec<u64> {
     unsafe {
         std::slice::from_raw_parts(
-            value as *const T as *const u64,
+            &value as *const T as *const u64,
             std::mem::size_of::<T>() / 8,
         )
+        .to_vec()
     }
 }
 
@@ -25,56 +26,44 @@ fn calc_inv(a: u64) -> u64 {
     return inv.wrapping_neg();
 }
 
-fn params<F>(name: &str) -> String
+fn define_field(postfix: &str, limbs: Vec<u64>) -> String {
+    format!(
+        "#define FIELD_{} ((FIELD){{ {{ {} }} }})",
+        postfix,
+        join(limbs, ", ")
+    )
+}
+
+fn params<F>() -> String
 where
     F: PrimeField,
 {
-    let one = F::one();
-    let one = limbs_of(&one); // Get Montomery from of F::one()
-    let p = F::char();
-    let p = limbs_of(&p); // Get regular form of field modulus
+    let one = limbs_of(F::one()); // Get Montomery form of F::one()
+    let p = limbs_of(F::char()); // Get regular form of field modulus
     let limbs = one.len(); // Number of limbs
     let inv = calc_inv(p[0]);
-    let limbs_def = format!("#define {}_LIMBS {}", name, limbs);
-    let p_def = format!(
-        "#define {}_P (({}){{ {{ {} }} }})",
-        name,
-        name,
-        join(p, ", ")
-    );
-    let one_def = format!(
-        "#define {}_ONE (({}){{ {{ {} }} }})",
-        name,
-        name,
-        join(one, ", ")
-    );
-    let zero_def = format!(
-        "#define {}_ZERO (({}){{ {{ {} }} }})",
-        name,
-        name,
-        join(vec![0u32; limbs], ", ")
-    );
-    let inv_def = format!("#define {}_INV {}", name, inv);
-    let typedef = format!("typedef struct {{ limb val[{}_LIMBS]; }} {};", name, name);
-    return format!(
-        "{}\n{}\n{}\n{}\n{}\n{}",
-        limbs_def, one_def, p_def, zero_def, inv_def, typedef
-    );
+    let limbs_def = format!("#define FIELD_LIMBS {}", limbs);
+    let p_def = define_field("P", p);
+    let one_def = define_field("ONE", one);
+    let zero_def = define_field("ZERO", vec![0u64; limbs]);
+    let inv_def = format!("#define FIELD_INV {}", inv);
+    let typedef = format!("typedef struct {{ limb val[FIELD_LIMBS]; }} FIELD;");
+    join(
+        &[limbs_def, one_def, p_def, zero_def, inv_def, typedef],
+        "\n",
+    )
 }
 
-fn field_add_sub<F>(name: &str) -> String
+fn field_add_sub<F>() -> String
 where
     F: PrimeField,
 {
     let mut result = String::new();
-    for op in &["sub", "add"] {
-        let one = F::one();
-        let len = limbs_of(&one).len();
-        let mut src = String::from(format!(
-            "{} {}_{}_({} a, {} b) {{\n",
-            name, name, op, name, name
-        ));
 
+    for op in &["sub", "add"] {
+        let len = limbs_of(F::one()).len();
+
+        let mut src = format!("FIELD FIELD_{}_(FIELD a, FIELD b) {{\n", op);
         if len > 1 {
             src.push_str("asm(");
             src.push_str(format!("\"{}.cc.u64 %0, %0, %{};\\r\\n\"\n", op, len).as_str());
@@ -102,7 +91,6 @@ where
             src.push_str(outs.as_str());
             src.push_str(");\n");
         }
-
         src.push_str("return a;\n}\n");
 
         result.push_str(&src);
@@ -115,13 +103,16 @@ pub fn field<F>(name: &str) -> String
 where
     F: PrimeField,
 {
-    return format!(
-        "{}\n{}\n{}\n{}\n",
-        COMMON_SRC,
-        params::<F>(name),
-        field_add_sub::<F>(name),
-        String::from(FIELD_SRC).replace("FIELD", name)
-    );
+    join(
+        &[
+            COMMON_SRC.to_string(),
+            params::<F>(),
+            field_add_sub::<F>(),
+            String::from(FIELD_SRC),
+        ],
+        "\n",
+    )
+    .replace("FIELD", name)
 }
 
 #[cfg(test)]
