@@ -38,6 +38,8 @@ FIELD FIELD_sqr(FIELD a); // Modular squaring
 FIELD FIELD_double(FIELD a); // Modular doubling
 FIELD FIELD_pow(FIELD base, uint exponent); // Modular power
 FIELD FIELD_pow_lookup(global FIELD *bases, uint exponent); // Modular power with lookup table for bases
+FIELD FIELD_mont(FIELD a); // To montgomery form
+FIELD FIELD_unmont(FIELD a); // To regular form
 bool FIELD_get_bit(FIELD l, uint i); // Get `i`th bit (From most significant digit)
 uint FIELD_get_bits(FIELD l, uint skip, uint window); // Get `window` consecutive bits, (Starting from `skip`th bit from most significant digit)
 ```

@@ -113,6 +113,16 @@ FIELD FIELD_pow_lookup(__global FIELD *bases, uint exponent) {
   return res;
 }
 
+FIELD FIELD_mont(FIELD a) {
+  return FIELD_mul(a, FIELD_R2);
+}
+
+FIELD FIELD_unmont(FIELD a) {
+  FIELD one = FIELD_ZERO;
+  one.val[0] = 1;
+  return FIELD_mul(a, one);
+}
+
 // Get `i`th bit (From most significant digit) of the field.
 bool FIELD_get_bit(FIELD l, uint i) {
   return (l.val[FIELD_LIMBS - 1 - i / LIMB_BITS] >> (LIMB_BITS - 1 - (i % LIMB_BITS))) & 1;

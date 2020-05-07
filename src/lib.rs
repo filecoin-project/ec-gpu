@@ -1,15 +1,27 @@
 use ff::PrimeField;
-use itertools::join;
+use itertools::*;
+use num_bigint::BigUint;
 
 static COMMON_SRC: &str = include_str!("cl/common.cl");
 static FIELD_SRC: &str = include_str!("cl/field.cl");
 
 /// Divide anything into 64bit chunks
-fn limbs_of<T>(value: T) -> Vec<u64> {
+fn u64_limbs_of<T>(value: T) -> Vec<u64> {
     unsafe {
         std::slice::from_raw_parts(
             &value as *const T as *const u64,
             std::mem::size_of::<T>() / 8,
+        )
+        .to_vec()
+    }
+}
+
+/// Divide anything into 32bit chunks
+fn u32_limbs_of<T>(value: T) -> Vec<u32> {
+    unsafe {
+        std::slice::from_raw_parts(
+            &value as *const T as *const u32,
+            std::mem::size_of::<T>() / 4,
         )
         .to_vec()
     }
@@ -34,22 +46,40 @@ fn define_field(postfix: &str, limbs: Vec<u64>) -> String {
     )
 }
 
+fn calculate_r2<F: PrimeField>() -> Vec<u64> {
+    // R ^ 2 mod P
+    let r2 = BigUint::new(u32_limbs_of(F::one()))
+        .modpow(
+            &BigUint::from_slice(&[2]),             // ^ 2
+            &BigUint::new(u32_limbs_of(F::char())), // mod P
+        )
+        .to_u32_digits();
+    r2.iter()
+        .tuples()
+        .map(|(lo, hi)| ((*hi as u64) << 32) + (*lo as u64))
+        .collect()
+}
+
 fn params<F>() -> String
 where
     F: PrimeField,
 {
-    let one = limbs_of(F::one()); // Get Montomery form of F::one()
-    let p = limbs_of(F::char()); // Get regular form of field modulus
+    let one = u64_limbs_of(F::one()); // Get Montomery form of F::one()
+    let p = u64_limbs_of(F::char()); // Get regular form of field modulus
+    let r2 = calculate_r2::<F>();
     let limbs = one.len(); // Number of limbs
     let inv = calc_inv(p[0]);
     let limbs_def = format!("#define FIELD_LIMBS {}", limbs);
     let p_def = define_field("P", p);
+    let r2_def = define_field("R2", r2);
     let one_def = define_field("ONE", one);
     let zero_def = define_field("ZERO", vec![0u64; limbs]);
     let inv_def = format!("#define FIELD_INV {}", inv);
     let typedef = format!("typedef struct {{ limb val[FIELD_LIMBS]; }} FIELD;");
     join(
-        &[limbs_def, one_def, p_def, zero_def, inv_def, typedef],
+        &[
+            limbs_def, one_def, p_def, r2_def, zero_def, inv_def, typedef,
+        ],
         "\n",
     )
 }
@@ -61,7 +91,7 @@ where
     let mut result = String::new();
 
     for op in &["sub", "add"] {
-        let len = limbs_of(F::one()).len();
+        let len = u64_limbs_of(F::one()).len();
 
         let mut src = format!("FIELD FIELD_{}_(FIELD a, FIELD b) {{\n", op);
         if len > 1 {
