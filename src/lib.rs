@@ -35,6 +35,7 @@ fn define_field(name: &str, limbs: Vec<u64>) -> String {
     )
 }
 
+/// Calculates `R ^ 2 mod P` and returns the result as a vector of 64bit limbs
 fn calculate_r2<F: PrimeField>() -> Vec<u64> {
     // R ^ 2 mod P
     let r2 = BigUint::new(limbs_of::<_, u32>(F::one()))
@@ -49,6 +50,7 @@ fn calculate_r2<F: PrimeField>() -> Vec<u64> {
         .collect()
 }
 
+/// Generates OpenCL constants and type definitions of prime-field `F`
 fn params<F>() -> String
 where
     F: PrimeField,
@@ -73,6 +75,7 @@ where
     )
 }
 
+/// Generates PTX-Assembly implementation of FIELD_add_/FIELD_sub_
 fn field_add_sub<F>() -> String
 where
     F: PrimeField,
@@ -118,6 +121,8 @@ where
     result
 }
 
+/// Returns OpenCL source-code of a ff::PrimeField with name `name`
+/// Find details in README.md
 pub fn field<F>(name: &str) -> String
 where
     F: PrimeField,
