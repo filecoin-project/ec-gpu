@@ -139,7 +139,7 @@ mod tests {
     use super::*;
     use ff::Field;
     use ocl::{OclPrm, ProQue};
-    use paired::bls12_381::Fr;
+    use paired::bls12_381::{Fr, FrRepr};
     use rand::{thread_rng, Rng};
 
     #[derive(PartialEq, Debug, Clone, Copy)]
@@ -220,6 +220,38 @@ mod tests {
             let b = rng.gen::<u32>();
             let c = a.pow([b as u64]);
             assert_eq!(call_kernel!("test_pow", GpuFr(a), b), c);
+        }
+    }
+
+    #[test]
+    fn test_unmont() {
+        let mut rng = thread_rng();
+        for _ in 0..10 {
+            let a = Fr::random(&mut rng);
+            let b = unsafe { std::mem::transmute::<FrRepr, Fr>(a.into_repr()) };
+            assert_eq!(call_kernel!("test_unmont", GpuFr(a)), b);
+        }
+    }
+
+    #[test]
+    fn test_sqr() {
+        let mut rng = thread_rng();
+        for _ in 0..10 {
+            let a = Fr::random(&mut rng);
+            let mut b = a.clone();
+            b.square();
+            assert_eq!(call_kernel!("test_sqr", GpuFr(a)), b);
+        }
+    }
+
+    #[test]
+    fn test_mont() {
+        let mut rng = thread_rng();
+        for _ in 0..10 {
+            let a_repr = Fr::random(&mut rng).into_repr();
+            let a = unsafe { std::mem::transmute::<FrRepr, Fr>(a_repr) };
+            let b = Fr::from_repr(a_repr).unwrap();
+            assert_eq!(call_kernel!("test_mont", GpuFr(a)), b);
         }
     }
 }
