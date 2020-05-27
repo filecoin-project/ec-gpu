@@ -27,10 +27,10 @@ fn calc_inv(a: u64) -> u64 {
     return inv.wrapping_neg();
 }
 
-fn define_field(postfix: &str, limbs: Vec<u64>) -> String {
+fn define_field(name: &str, limbs: Vec<u64>) -> String {
     format!(
-        "#define FIELD_{} ((FIELD){{ {{ {} }} }})",
-        postfix,
+        "#define {} ((FIELD){{ {{ {} }} }})",
+        name,
         join(limbs, ", ")
     )
 }
@@ -53,16 +53,16 @@ fn params<F>() -> String
 where
     F: PrimeField,
 {
-    let one = limbs_of::<_, u64>(F::one()); // Get Montomery form of F::one()
+    let one = limbs_of::<_, u64>(F::one()); // Get Montgomery form of F::one()
     let p = limbs_of::<_, u64>(F::char()); // Get regular form of field modulus
     let r2 = calculate_r2::<F>();
     let limbs = one.len(); // Number of limbs
     let inv = calc_inv(p[0]);
     let limbs_def = format!("#define FIELD_LIMBS {}", limbs);
-    let p_def = define_field("P", p);
-    let r2_def = define_field("R2", r2);
-    let one_def = define_field("ONE", one);
-    let zero_def = define_field("ZERO", vec![0u64; limbs]);
+    let p_def = define_field("FIELD_P", p);
+    let r2_def = define_field("FIELD_R2", r2);
+    let one_def = define_field("FIELD_ONE", one);
+    let zero_def = define_field("FIELD_ZERO", vec![0u64; limbs]);
     let inv_def = format!("#define FIELD_INV {}", inv);
     let typedef = format!("typedef struct {{ limb val[FIELD_LIMBS]; }} FIELD;");
     join(
