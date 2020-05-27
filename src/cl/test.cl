@@ -25,3 +25,7 @@ __kernel void test_unmont(Fr a, __global Fr *result) {
 __kernel void test_sqr(Fr a, __global Fr *result) {
   *result = Fr_sqr(a);
 }
+
+__kernel void test_double(Fr a, __global Fr *result) {
+  *result = Fr_double(a);
+}

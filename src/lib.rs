@@ -229,16 +229,6 @@ mod tests {
     }
 
     #[test]
-    fn test_unmont() {
-        let mut rng = thread_rng();
-        for _ in 0..10 {
-            let a = Fr::random(&mut rng);
-            let b = unsafe { std::mem::transmute::<FrRepr, Fr>(a.into_repr()) };
-            assert_eq!(call_kernel!("test_unmont", GpuFr(a)), b);
-        }
-    }
-
-    #[test]
     fn test_sqr() {
         let mut rng = thread_rng();
         for _ in 0..10 {
@@ -246,6 +236,27 @@ mod tests {
             let mut b = a.clone();
             b.square();
             assert_eq!(call_kernel!("test_sqr", GpuFr(a)), b);
+        }
+    }
+
+    #[test]
+    fn test_double() {
+        let mut rng = thread_rng();
+        for _ in 0..10 {
+            let a = Fr::random(&mut rng);
+            let mut b = a.clone();
+            b.double();
+            assert_eq!(call_kernel!("test_double", GpuFr(a)), b);
+        }
+    }
+
+    #[test]
+    fn test_unmont() {
+        let mut rng = thread_rng();
+        for _ in 0..10 {
+            let a = Fr::random(&mut rng);
+            let b = unsafe { std::mem::transmute::<FrRepr, Fr>(a.into_repr()) };
+            assert_eq!(call_kernel!("test_unmont", GpuFr(a)), b);
         }
     }
 
