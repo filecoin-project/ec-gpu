@@ -134,26 +134,92 @@ where
     .replace("FIELD", name)
 }
 
-#[test]
-fn test_exp() {
-    static TEST_SRC: &str = include_str!("cl/test.cl");
-
-    use ocl::ProQue;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ff::Field;
+    use ocl::{OclPrm, ProQue};
     use paired::bls12_381::Fr;
-    let src = format!("{}\n{}", field::<Fr>("Fr"), TEST_SRC);
-    let pro_que = ProQue::builder().src(src).dims(1).build().unwrap();
+    use rand::{thread_rng, Rng};
 
-    let mut cpu_buffer = vec![0u32];
-    let buffer = pro_que.create_buffer::<u32>().unwrap();
-    buffer.write(&cpu_buffer).enq().unwrap();
+    #[derive(PartialEq, Debug, Clone, Copy)]
+    #[repr(transparent)]
+    pub struct GpuFr(pub Fr);
+    impl Default for GpuFr {
+        fn default() -> Self {
+            Self(Fr::zero())
+        }
+    }
+    unsafe impl OclPrm for GpuFr {}
 
-    let kernel = pro_que.kernel_builder("test").arg(&buffer).build().unwrap();
+    macro_rules! call_kernel {
+        ($name:expr, $($arg:expr),*) => {{
+            static TEST_SRC: &str = include_str!("cl/test.cl");
+            let src = format!("{}\n{}", field::<Fr>("Fr"), TEST_SRC);
+            let pro_que = ProQue::builder().src(src).dims(1).build().unwrap();
 
-    unsafe {
-        kernel.enq().unwrap();
+            let mut cpu_buffer = vec![GpuFr::default()];
+            let buffer = pro_que.create_buffer::<GpuFr>().unwrap();
+            buffer.write(&cpu_buffer).enq().unwrap();
+            let kernel =
+                pro_que
+                .kernel_builder($name)
+                $(.arg($arg))*
+                .arg(&buffer)
+                .build().unwrap();
+            unsafe {
+                kernel.enq().unwrap();
+            }
+            buffer.read(&mut cpu_buffer).enq().unwrap();
+
+            cpu_buffer[0].0
+        }};
     }
 
-    buffer.read(&mut cpu_buffer).enq().unwrap();
+    #[test]
+    fn test_add() {
+        let mut rng = thread_rng();
+        for _ in 0..10 {
+            let a = Fr::random(&mut rng);
+            let b = Fr::random(&mut rng);
+            let mut c = a.clone();
+            c.add_assign(&b);
+            assert_eq!(call_kernel!("test_add", GpuFr(a), GpuFr(b)), c);
+        }
+    }
 
-    assert_eq!(cpu_buffer[0], 1u32);
+    #[test]
+    fn test_sub() {
+        let mut rng = thread_rng();
+        for _ in 0..10 {
+            let a = Fr::random(&mut rng);
+            let b = Fr::random(&mut rng);
+            let mut c = a.clone();
+            c.sub_assign(&b);
+            assert_eq!(call_kernel!("test_sub", GpuFr(a), GpuFr(b)), c);
+        }
+    }
+
+    #[test]
+    fn test_mul() {
+        let mut rng = thread_rng();
+        for _ in 0..10 {
+            let a = Fr::random(&mut rng);
+            let b = Fr::random(&mut rng);
+            let mut c = a.clone();
+            c.mul_assign(&b);
+            assert_eq!(call_kernel!("test_mul", GpuFr(a), GpuFr(b)), c);
+        }
+    }
+
+    #[test]
+    fn test_pow() {
+        let mut rng = thread_rng();
+        for _ in 0..10 {
+            let a = Fr::random(&mut rng);
+            let b = rng.gen::<u32>();
+            let c = a.pow([b as u64]);
+            assert_eq!(call_kernel!("test_pow", GpuFr(a), b), c);
+        }
+    }
 }

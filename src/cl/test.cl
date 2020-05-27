@@ -1,12 +1,15 @@
-__kernel void test(__global uint *result) {
-  Fr two = Fr_add(Fr_ONE, Fr_ONE);
-  Fr eight = Fr_mul(Fr_sqr(two), two);
+__kernel void test_add(Fr a, Fr b, __global Fr *result) {
+  *result = Fr_add(a, b);
+}
 
-  Fr a = Fr_pow(two, 123456);
-  Fr b = Fr_pow(eight, 41152);
-  
-  a = Fr_unmont(a);
-  a = Fr_mont(a);
+__kernel void test_mul(Fr a, Fr b, __global Fr *result) {
+  *result = Fr_mul(a, b);
+}
 
-  *result = Fr_eq(a, b);
+__kernel void test_sub(Fr a, Fr b, __global Fr *result) {
+  *result = Fr_sub(a, b);
+}
+
+__kernel void test_pow(Fr a, uint b, __global Fr *result) {
+  *result = Fr_pow(a, b);
 }
