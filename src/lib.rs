@@ -76,7 +76,7 @@ where
 }
 
 /// Generates PTX-Assembly implementation of FIELD_add_/FIELD_sub_
-fn field_add_sub<F>() -> String
+fn field_add_sub_nvidia<F>() -> String
 where
     F: PrimeField,
 {
@@ -85,7 +85,7 @@ where
     for op in &["sub", "add"] {
         let len = limbs_of::<_, u64>(F::one()).len();
 
-        let mut src = format!("FIELD FIELD_{}_(FIELD a, FIELD b) {{\n", op);
+        let mut src = format!("FIELD FIELD_{}_nvidia(FIELD a, FIELD b) {{\n", op);
         if len > 1 {
             src.push_str("asm(");
             src.push_str(format!("\"{}.cc.u64 %0, %0, %{};\\r\\n\"\n", op, len).as_str());
@@ -131,7 +131,7 @@ where
         &[
             COMMON_SRC.to_string(),
             params::<F>(),
-            field_add_sub::<F>(),
+            field_add_sub_nvidia::<F>(),
             String::from(FIELD_SRC),
         ],
         "\n",

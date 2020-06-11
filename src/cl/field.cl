@@ -22,6 +22,31 @@ bool FIELD_eq(FIELD a, FIELD b) {
   return true;
 }
 
+// Normal addition
+#ifdef NVIDIA
+  #define FIELD_add_ FIELD_add_nvidia
+  #define FIELD_sub_ FIELD_sub_nvidia
+#else
+  FIELD FIELD_add_(FIELD a, FIELD b) {
+    bool carry = 0;
+    for(uchar i = 0; i < FIELD_LIMBS; i++) {
+      limb old = a.val[i];
+      a.val[i] += b.val[i] + carry;
+      carry = carry ? old >= a.val[i] : old > a.val[i];
+    }
+    return a;
+  }
+  FIELD FIELD_sub_(FIELD a, FIELD b) {
+    bool borrow = 0;
+    for(uchar i = 0; i < FIELD_LIMBS; i++) {
+      limb old = a.val[i];
+      a.val[i] -= b.val[i] + borrow;
+      borrow = borrow ? old <= a.val[i] : old < a.val[i];
+    }
+    return a;
+  }
+#endif
+
 // Modular subtraction
 FIELD FIELD_sub(FIELD a, FIELD b) {
   FIELD res = FIELD_sub_(a, b);
