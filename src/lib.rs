@@ -82,6 +82,7 @@ where
 {
     let mut result = String::new();
 
+    result.push_str("#ifdef NVIDIA\n");
     for op in &["sub", "add"] {
         let len = limbs_of::<_, u64>(F::one()).len();
 
@@ -117,6 +118,7 @@ where
 
         result.push_str(&src);
     }
+    result.push_str("#endif\n");
 
     result
 }
