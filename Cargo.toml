@@ -1,6 +1,6 @@
 [package]
 name = "ff-cl-gen"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Keyvan Kambakhsh <keyvankambakhsh@gmail.com>"]
 description = "OpenCL code generator for prime-fields"
 documentation = "https://docs.rs/ff-cl-gen"
