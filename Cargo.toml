@@ -18,3 +18,4 @@ num-bigint = "0.2"
 ocl = { version = "0.19.4", package = "fil-ocl"}
 paired = { version = "0.18.0" }
 rand = "0.7"
+lazy_static = "1.2"

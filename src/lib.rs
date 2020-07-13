@@ -145,6 +145,7 @@ where
 mod tests {
     use super::*;
     use ff::Field;
+    use lazy_static::lazy_static;
     use ocl::{OclPrm, ProQue};
     use paired::bls12_381::{Fr, FrRepr};
     use rand::{thread_rng, Rng};
@@ -159,17 +160,21 @@ mod tests {
     }
     unsafe impl OclPrm for GpuFr {}
 
-    macro_rules! call_kernel {
-        ($name:expr, $($arg:expr),*) => {{
+    lazy_static! {
+        static ref PROQUE: ProQue = {
             static TEST_SRC: &str = include_str!("cl/test.cl");
             let src = format!("{}\n{}", field::<Fr>("Fr"), TEST_SRC);
-            let pro_que = ProQue::builder().src(src).dims(1).build().unwrap();
+            ProQue::builder().src(src).dims(1).build().unwrap()
+        };
+    }
 
+    macro_rules! call_kernel {
+        ($name:expr, $($arg:expr),*) => {{
             let mut cpu_buffer = vec![GpuFr::default()];
-            let buffer = pro_que.create_buffer::<GpuFr>().unwrap();
+            let buffer = PROQUE.create_buffer::<GpuFr>().unwrap();
             buffer.write(&cpu_buffer).enq().unwrap();
             let kernel =
-                pro_que
+                PROQUE
                 .kernel_builder($name)
                 $(.arg($arg))*
                 .arg(&buffer)
