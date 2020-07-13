@@ -5,6 +5,16 @@
 #define NVIDIA
 #endif
 
+#if defined(__WinterPark__) || defined(__BeaverCreek__) || defined(__Turks__) || \
+    defined(__Caicos__) || defined(__Tahiti__) || defined(__Pitcairn__) || \
+    defined(__Capeverde__) || defined(__Cayman__) || defined(__Barts__) || \
+    defined(__Cypress__) || defined(__Juniper__) || defined(__Redwood__) || \
+    defined(__Cedar__) || defined(__ATI_RV770__) || defined(__ATI_RV730__) || \
+    defined(__ATI_RV710__) || defined(__Loveland__) || defined(__GPU__) || \
+    defined(__Hawaii__)
+#define AMD
+#endif
+
 typedef ulong limb;
 #define LIMB_BITS (64)
 
