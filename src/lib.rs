@@ -118,7 +118,7 @@ fn calculate_r2<F: PrimeField>() -> Vec<u32> {
     // R ^ 2 mod P
     BigUint::new(utils::limbs_of::<_, u32>(F::one()))
         .modpow(
-            &BigUint::from_slice(&[2]),                   // ^ 2
+            &BigUint::from_slice(&[2]),                          // ^ 2
             &BigUint::new(utils::limbs_of::<_, u32>(F::char())), // mod P
         )
         .to_u32_digits()
