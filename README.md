@@ -3,7 +3,7 @@
 OpenCL code generator for finite-field arithmetic over prime fields constructed with Rust [ff](https://github.com/filecoin-project/ff) library.
 
 Notes:
- - Limbs are 64-bit long.
+ - Limbs are 32/64-bit long, by your choice.
  - The library assumes that the most significant bit of your prime-field is unset. This allows for cheap reductions.
 
 ## Usage
@@ -12,22 +12,21 @@ Generating OpenCL codes for Bls12-381 Fr elements:
 
 ```rust
 use paired::bls12_381::Fr;
-let src = ff_cl_gen::field::<Fr>("Fr");
+let src = ff_cl_gen::field::<Fr, Limb64>("Fr");
 ```
 
 Generated interface (`FIELD` is substituted with `Fr`):
 
 ```c
-typedef ulong limb;
-#define LIMB_BITS (64)
-
-#define FIELD_LIMBS ... // Number of 64bit limbs for this field
+#define FIELD_LIMB_BITS ... // 32/64
+#define FIELD_limb ... // uint/ulong, based on FIELD_LIMB_BITS
+#define FIELD_LIMBS ... // Number of limbs for this field
 #define FIELD_P ... // Normal form of field modulus
 #define FIELD_ONE ... // Montomery form of one
 #define FIELD_ZERO ... // Montomery/normal form of zero
-#define FIELD_BITS (FIELD_LIMBS * LIMB_BITS)
+#define FIELD_BITS (FIELD_LIMBS * FIELD_LIMB_BITS)
 
-typedef struct { limb val[FIELD_LIMBS]; } FIELD;
+typedef struct { FIELD_limb val[FIELD_LIMBS]; } FIELD;
 
 bool FIELD_gte(FIELD a, FIELD b); // Greater than or equal
 bool FIELD_eq(FIELD a, FIELD b); // Equal
