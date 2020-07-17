@@ -1,7 +1,14 @@
 // FinalityLabs - 2019
 // Arbitrary size prime-field arithmetic library (add, sub, mul, pow)
 
-#define FIELD_BITS (FIELD_LIMBS * LIMB_BITS)
+#define FIELD_BITS (FIELD_LIMBS * FIELD_LIMB_BITS)
+#if FIELD_LIMB_BITS == 32
+  #define FIELD_mac_with_carry mac_with_carry_32
+  #define FIELD_add_with_carry add_with_carry_32
+#elif FIELD_LIMB_BITS == 64
+  #define FIELD_mac_with_carry mac_with_carry_64
+  #define FIELD_add_with_carry add_with_carry_64
+#endif
 
 // Greater than or equal
 bool FIELD_gte(FIELD a, FIELD b) {
@@ -30,7 +37,7 @@ bool FIELD_eq(FIELD a, FIELD b) {
   FIELD FIELD_add_(FIELD a, FIELD b) {
     bool carry = 0;
     for(uchar i = 0; i < FIELD_LIMBS; i++) {
-      limb old = a.val[i];
+      FIELD_limb old = a.val[i];
       a.val[i] += b.val[i] + carry;
       carry = carry ? old >= a.val[i] : old > a.val[i];
     }
@@ -39,7 +46,7 @@ bool FIELD_eq(FIELD a, FIELD b) {
   FIELD FIELD_sub_(FIELD a, FIELD b) {
     bool borrow = 0;
     for(uchar i = 0; i < FIELD_LIMBS; i++) {
-      limb old = a.val[i];
+      FIELD_limb old = a.val[i];
       a.val[i] -= b.val[i] + borrow;
       borrow = borrow ? old <= a.val[i] : old < a.val[i];
     }
@@ -69,21 +76,21 @@ FIELD FIELD_mul(FIELD a, FIELD b) {
    * https://en.wikipedia.org/wiki/Montgomery_modular_multiplication
    * https://alicebob.cryptoland.net/understanding-the-montgomery-reduction-algorithm/
    */
-  limb t[FIELD_LIMBS + 2] = {0};
+  FIELD_limb t[FIELD_LIMBS + 2] = {0};
   for(uchar i = 0; i < FIELD_LIMBS; i++) {
-    limb carry = 0;
+    FIELD_limb carry = 0;
     for(uchar j = 0; j < FIELD_LIMBS; j++)
-      t[j] = mac_with_carry(a.val[j], b.val[i], t[j], &carry);
-    t[FIELD_LIMBS] = add_with_carry(t[FIELD_LIMBS], &carry);
+      t[j] = FIELD_mac_with_carry(a.val[j], b.val[i], t[j], &carry);
+    t[FIELD_LIMBS] = FIELD_add_with_carry(t[FIELD_LIMBS], &carry);
     t[FIELD_LIMBS + 1] = carry;
 
     carry = 0;
-    limb m = FIELD_INV * t[0];
-    mac_with_carry(m, FIELD_P.val[0], t[0], &carry);
+    FIELD_limb m = FIELD_INV * t[0];
+    FIELD_mac_with_carry(m, FIELD_P.val[0], t[0], &carry);
     for(uchar j = 1; j < FIELD_LIMBS; j++)
-      t[j - 1] = mac_with_carry(m, FIELD_P.val[j], t[j], &carry);
+      t[j - 1] = FIELD_mac_with_carry(m, FIELD_P.val[j], t[j], &carry);
 
-    t[FIELD_LIMBS - 1] = add_with_carry(t[FIELD_LIMBS], &carry);
+    t[FIELD_LIMBS - 1] = FIELD_add_with_carry(t[FIELD_LIMBS], &carry);
     t[FIELD_LIMBS] = t[FIELD_LIMBS + 1] + carry;
   }
 
@@ -105,7 +112,7 @@ FIELD FIELD_sqr(FIELD a) {
 // Faster version of FIELD_add(a, a)
 FIELD FIELD_double(FIELD a) {
   for(uchar i = FIELD_LIMBS - 1; i >= 1; i--)
-    a.val[i] = (a.val[i] << 1) | (a.val[i - 1] >> (LIMB_BITS - 1));
+    a.val[i] = (a.val[i] << 1) | (a.val[i - 1] >> (FIELD_LIMB_BITS - 1));
   a.val[0] <<= 1;
   if(FIELD_gte(a, FIELD_P)) a = FIELD_sub_(a, FIELD_P);
   return a;
@@ -150,7 +157,7 @@ FIELD FIELD_unmont(FIELD a) {
 
 // Get `i`th bit (From most significant digit) of the field.
 bool FIELD_get_bit(FIELD l, uint i) {
-  return (l.val[FIELD_LIMBS - 1 - i / LIMB_BITS] >> (LIMB_BITS - 1 - (i % LIMB_BITS))) & 1;
+  return (l.val[FIELD_LIMBS - 1 - i / FIELD_LIMB_BITS] >> (FIELD_LIMB_BITS - 1 - (i % FIELD_LIMB_BITS))) & 1;
 }
 
 // Get `window` consecutive bits, (Starting from `skip`th bit) from the field.
