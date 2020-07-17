@@ -19,8 +19,8 @@ Generated interface (`FIELD` is substituted with `Fr`):
 
 ```c
 #define FIELD_LIMB_BITS ... // 32/64
-#define FIELD_limb ... // ulong/uint, based on FIELD_LIMB_BITS
-#define FIELD_LIMBS ... // Number of 64bit limbs for this field
+#define FIELD_limb ... // uint/ulong, based on FIELD_LIMB_BITS
+#define FIELD_LIMBS ... // Number of limbs for this field
 #define FIELD_P ... // Normal form of field modulus
 #define FIELD_ONE ... // Montomery form of one
 #define FIELD_ZERO ... // Montomery/normal form of zero
