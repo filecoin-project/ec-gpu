@@ -1,6 +1,12 @@
+mod nvidia;
+mod utils;
+
 use ff::PrimeField;
 use itertools::*;
 use num_bigint::BigUint;
+
+static COMMON_SRC: &str = include_str!("cl/common.cl");
+static FIELD_SRC: &str = include_str!("cl/field.cl");
 
 pub trait Limb: Sized + Clone + Copy {
     type LimbType: Clone + std::fmt::Display;
@@ -8,10 +14,10 @@ pub trait Limb: Sized + Clone + Copy {
     fn new(val: Self::LimbType) -> Self;
     fn value(&self) -> Self::LimbType;
     fn bits() -> usize;
-    fn ptx_types() -> (&'static str, &'static str);
+    fn ptx_info() -> (&'static str, &'static str);
     fn opencl_type() -> &'static str;
     fn limbs_of<T>(value: T) -> Vec<Self> {
-        limbs_of::<T, Self::LimbType>(value)
+        utils::limbs_of::<T, Self::LimbType>(value)
             .into_iter()
             .map(|l| Self::new(l))
             .collect()
@@ -38,7 +44,7 @@ impl Limb for Limb32 {
     fn bits() -> usize {
         32
     }
-    fn ptx_types() -> (&'static str, &'static str) {
+    fn ptx_info() -> (&'static str, &'static str) {
         ("u32", "r")
     }
     fn opencl_type() -> &'static str {
@@ -76,7 +82,7 @@ impl Limb for Limb64 {
     fn bits() -> usize {
         64
     }
-    fn ptx_types() -> (&'static str, &'static str) {
+    fn ptx_info() -> (&'static str, &'static str) {
         ("u64", "l")
     }
     fn opencl_type() -> &'static str {
@@ -99,20 +105,6 @@ impl Limb for Limb64 {
     }
 }
 
-static COMMON_SRC: &str = include_str!("cl/common.cl");
-static FIELD_SRC: &str = include_str!("cl/field.cl");
-
-/// Divide anything into limbs of type `E`
-fn limbs_of<T, E: Clone>(value: T) -> Vec<E> {
-    unsafe {
-        std::slice::from_raw_parts(
-            &value as *const T as *const E,
-            std::mem::size_of::<T>() / std::mem::size_of::<E>(),
-        )
-        .to_vec()
-    }
-}
-
 fn define_field<L: Limb>(name: &str, limbs: Vec<L>) -> String {
     format!(
         "#define {} ((FIELD){{ {{ {} }} }})",
@@ -121,13 +113,13 @@ fn define_field<L: Limb>(name: &str, limbs: Vec<L>) -> String {
     )
 }
 
-/// Calculates `R ^ 2 mod P` and returns the result as a vector of 64bit limbs
+/// Calculates `R ^ 2 mod P` and returns the result as a vector of 32bit limbs
 fn calculate_r2<F: PrimeField>() -> Vec<u32> {
     // R ^ 2 mod P
-    BigUint::new(limbs_of::<_, u32>(F::one()))
+    BigUint::new(utils::limbs_of::<_, u32>(F::one()))
         .modpow(
             &BigUint::from_slice(&[2]),                   // ^ 2
-            &BigUint::new(limbs_of::<_, u32>(F::char())), // mod P
+            &BigUint::new(utils::limbs_of::<_, u32>(F::char())), // mod P
         )
         .to_u32_digits()
 }
@@ -167,70 +159,6 @@ where
     )
 }
 
-/// Generates PTX-Assembly implementation of FIELD_add_/FIELD_sub_
-fn field_add_sub_nvidia<F, L: Limb>() -> String
-where
-    F: PrimeField,
-{
-    let mut result = String::new();
-    let (ptx_type, ptx_reg) = L::ptx_types();
-
-    result.push_str("#ifdef NVIDIA\n");
-    for op in &["sub", "add"] {
-        let len = L::limbs_of(F::one()).len();
-
-        let mut src = format!("FIELD FIELD_{}_nvidia(FIELD a, FIELD b) {{\n", op);
-        if len > 1 {
-            src.push_str("asm(");
-            src.push_str(format!("\"{}.cc.{} %0, %0, %{};\\r\\n\"\n", op, ptx_type, len).as_str());
-            for i in 1..len - 1 {
-                src.push_str(
-                    format!(
-                        "\"{}c.cc.{} %{}, %{}, %{};\\r\\n\"\n",
-                        op,
-                        ptx_type,
-                        i,
-                        i,
-                        len + i
-                    )
-                    .as_str(),
-                );
-            }
-            src.push_str(
-                format!(
-                    "\"{}c.{} %{}, %{}, %{};\\r\\n\"\n",
-                    op,
-                    ptx_type,
-                    len - 1,
-                    len - 1,
-                    2 * len - 1
-                )
-                .as_str(),
-            );
-            src.push_str(":");
-            let inps = join(
-                (0..len).map(|n| format!("\"+{}\"(a.val[{}])", ptx_reg, n)),
-                ", ",
-            );
-            src.push_str(inps.as_str());
-
-            src.push_str("\n:");
-            let outs = join(
-                (0..len).map(|n| format!("\"{}\"(b.val[{}])", ptx_reg, n)),
-                ", ",
-            );
-            src.push_str(outs.as_str());
-            src.push_str(");\n");
-        }
-        src.push_str("return a;\n}\n");
-
-        result.push_str(&src);
-    }
-    result.push_str("#endif\n");
-
-    result
-}
-
 /// Returns OpenCL source-code of a ff::PrimeField with name `name`
 /// Find details in README.md
 pub fn field<F, L: Limb>(name: &str) -> String
@@ -241,7 +169,7 @@ where
         &[
             COMMON_SRC.to_string(),
             params::<F, L>(),
-            field_add_sub_nvidia::<F, L>(),
+            nvidia::field_add_sub_nvidia::<F, L>(),
             String::from(FIELD_SRC),
         ],
         "\n",
