@@ -1,4 +1,5 @@
 mod nvidia;
+mod amd;
 mod utils;
 
 use ff::PrimeField;
@@ -170,6 +171,7 @@ where
             COMMON_SRC.to_string(),
             params::<F, L>(),
             nvidia::field_add_sub_nvidia::<F, L>(),
+            amd::field_add_sub_32_amd::<F, L>(),
             String::from(FIELD_SRC),
         ],
         "\n",

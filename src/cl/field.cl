@@ -33,6 +33,9 @@ bool FIELD_eq(FIELD a, FIELD b) {
 #ifdef NVIDIA
   #define FIELD_add_ FIELD_add_nvidia
   #define FIELD_sub_ FIELD_sub_nvidia
+#elif AMD && FIELD_LIMB_BITS == 32
+  #define FIELD_add_ FIELD_ADD_amd
+  #define FIELD_sub_ FIELD_SUB_amd
 #else
   FIELD FIELD_add_(FIELD a, FIELD b) {
     bool carry = 0;
