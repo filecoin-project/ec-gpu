@@ -32,14 +32,14 @@ where
             }
             src.push_str(":");
             let inps = join(
-                (0..len).map(|n| format!("\"+v\"(a.val[{}])", n)),
+                (0..len).map(|n| format!("\"+s\"(a.val[{}])", n)),
                 ", ",
             );
             src.push_str(inps.as_str());
 
             src.push_str("\n:");
             let outs = join(
-                (0..len).map(|n| format!("\"v\"(b.val[{}])", n)),
+                (0..len).map(|n| format!("\"s\"(b.val[{}])", n)),
                 ", ",
             );
             src.push_str(outs.as_str());
