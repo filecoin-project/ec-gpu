@@ -17,11 +17,11 @@ where
             let mut src = format!("FIELD FIELD_{}_amd(FIELD a, FIELD b) {{\n", op);
             if len > 1 {
                 src.push_str("__asm volatile(");
-                src.push_str(format!("\"S_{}_U32 %0, %{}, %{};\\n\"\n", op, len, 2 * len).as_str());
+                src.push_str(format!("\"V_{}_U32 %0, %{}, %{};\\n\"\n", op, len, 2 * len).as_str());
                 for i in 1..len {
                     src.push_str(
                         format!(
-                            "\"S_{}_U32 %{}, %{}, %{};\\n\"\n",
+                            "\"V_{}_U32 %{}, %{}, %{};\\n\"\n",
                             if *op == "ADD" { "ADDC" } else { "SUBB" },
                             i,
                             len + i,
@@ -31,14 +31,14 @@ where
                     );
                 }
                 src.push_str(":");
-                let inps = join((0..len).map(|n| format!("\"=s\"(a.val[{}])", n)), ", ");
+                let inps = join((0..len).map(|n| format!("\"=v\"(a.val[{}])", n)), ", ");
                 src.push_str(inps.as_str());
 
                 src.push_str("\n:");
                 let outs = join(
                     (0..len)
-                        .map(|n| format!("\"s\"(a.val[{}])", n))
-                        .chain((0..len).map(|n| format!("\"s\"(b.val[{}])", n))),
+                        .map(|n| format!("\"v\"(a.val[{}])", n))
+                        .chain((0..len).map(|n| format!("\"v\"(b.val[{}])", n))),
                     ", ",
                 );
                 src.push_str(outs.as_str());
