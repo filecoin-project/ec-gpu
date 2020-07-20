@@ -16,12 +16,12 @@ where
 
         let mut src = format!("FIELD FIELD_{}_amd(FIELD a, FIELD b) {{\n", op);
         if len > 1 {
-            src.push_str("asm(");
-            src.push_str(format!("\"S_{}_U32 %0, %0, %{};\\r\\n\"\n", op, len).as_str());
+            src.push_str("__asm volatile(");
+            src.push_str(format!("\"S_{}_U32 %0, %0, %{};\\n\"\n", op, len).as_str());
             for i in 1..len {
                 src.push_str(
                     format!(
-                        "\"S_{}_U32 %{}, %{}, %{};\\r\\n\"\n",
+                        "\"S_{}_U32 %{}, %{}, %{};\\n\"\n",
                         if *op == "ADD" {"ADDC"} else {"SUBB"},
                         i,
                         i,
