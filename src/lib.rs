@@ -1,12 +1,67 @@
 mod nvidia;
-mod utils;
 
-use ff::PrimeField;
 use itertools::*;
-use num_bigint::BigUint;
 
 static COMMON_SRC: &str = include_str!("cl/common.cl");
 static FIELD_SRC: &str = include_str!("cl/field.cl");
+static FIELD2_SRC: &str = include_str!("cl/field2.cl");
+static EC_SRC: &str = include_str!("cl/ec.cl");
+
+pub trait GpuEngine: pairing::Engine {
+    type Scalar: GpuField;
+    type Fp: GpuField;
+
+    fn scalar_source(limb64: bool) -> String {
+        if limb64 {
+            field::<Self::Scalar, Limb64>("Fr")
+        } else {
+            field::<Self::Scalar, Limb32>("Fr")
+        }
+    }
+
+    fn fp_source(limb64: bool) -> String {
+        if limb64 {
+            field::<Self::Fp, Limb64>("Fq")
+        } else {
+            field::<Self::Fp, Limb32>("Fq")
+        }
+    }
+
+    fn fp2_source(_limb64: bool) -> String {
+        field2("Fq2", "Fq")
+    }
+
+    fn g1_source(_limb64: bool) -> String {
+        ec("Fq", "G1")
+    }
+
+    fn g2_source(_limb64: bool) -> String {
+        ec("Fq2", "G2")
+    }
+}
+
+pub trait GpuField {
+    /// Returns `1` as a vector of 32bit limbs.
+    fn one() -> Vec<u32>;
+
+    /// Returns `R ^ 2 mod P` as a vector of 32bit limbs.
+    fn r2() -> Vec<u32>;
+
+    /// Returns the field modulus in non-Montgomery form (least significant limb first).
+    fn modulus() -> Vec<u32>;
+}
+
+fn ec(field: &str, point: &str) -> String {
+    String::from(EC_SRC)
+        .replace("FIELD", field)
+        .replace("POINT", point)
+}
+
+fn field2(field2: &str, field: &str) -> String {
+    String::from(FIELD2_SRC)
+        .replace("FIELD2", field2)
+        .replace("FIELD", field)
+}
 
 pub trait Limb: Sized + Clone + Copy {
     type LimbType: Clone + std::fmt::Display;
@@ -16,16 +71,14 @@ pub trait Limb: Sized + Clone + Copy {
     fn bits() -> usize;
     fn ptx_info() -> (&'static str, &'static str);
     fn opencl_type() -> &'static str;
-    fn limbs_of<T>(value: T) -> Vec<Self> {
-        utils::limbs_of::<T, Self::LimbType>(value)
-            .into_iter()
-            .map(|l| Self::new(l))
-            .collect()
-    }
+    fn one_limbs<F: GpuField>() -> Vec<Self>;
+    // Returns the field modulus in non-Montgomery form as a vector of `Self::LimbType` (least
+    // significant limb first).
+    fn modulus_limbs<F: GpuField>() -> Vec<Self>;
     /// Calculate the `INV` parameter of Montgomery reduction algorithm for 32/64bit limbs
     /// * `a` - Is the first limb of modulus
     fn calc_inv(a: Self) -> Self;
-    fn calculate_r2<F: PrimeField>() -> Vec<Self>;
+    fn calculate_r2<F: GpuField>() -> Vec<Self>;
 }
 
 #[derive(Clone, Copy)]
@@ -50,6 +103,12 @@ impl Limb for Limb32 {
     fn opencl_type() -> &'static str {
         "uint"
     }
+    fn one_limbs<F: GpuField>() -> Vec<Self> {
+        F::one().into_iter().map(Self::new).collect()
+    }
+    fn modulus_limbs<F: GpuField>() -> Vec<Self> {
+        F::modulus().into_iter().map(Self::new).collect()
+    }
     fn calc_inv(a: Self) -> Self {
         let mut inv = 1u32;
         for _ in 0..31 {
@@ -58,11 +117,8 @@ impl Limb for Limb32 {
         }
         Self(inv.wrapping_neg())
     }
-    fn calculate_r2<F: PrimeField>() -> Vec<Self> {
-        calculate_r2::<F>()
-            .into_iter()
-            .map(|l| Self::new(l))
-            .collect()
+    fn calculate_r2<F: GpuField>() -> Vec<Self> {
+        F::r2().into_iter().map(Self::new).collect()
     }
 }
 
@@ -88,6 +144,21 @@ impl Limb for Limb64 {
     fn opencl_type() -> &'static str {
         "ulong"
     }
+    fn one_limbs<F: GpuField>() -> Vec<Self> {
+        F::one()
+            .into_iter()
+            .tuples::<(u32, u32)>()
+            .map(|(lo, hi)| Self::new(((hi as u64) << 32) + (lo as u64)))
+            .collect()
+    }
+
+    fn modulus_limbs<F: GpuField>() -> Vec<Self> {
+        F::modulus()
+            .into_iter()
+            .tuples::<(u32, u32)>()
+            .map(|(lo, hi)| Self::new(((hi as u64) << 32) + (lo as u64)))
+            .collect()
+    }
     fn calc_inv(a: Self) -> Self {
         let mut inv = 1u64;
         for _ in 0..63 {
@@ -96,8 +167,8 @@ impl Limb for Limb64 {
         }
         Self(inv.wrapping_neg())
     }
-    fn calculate_r2<F: PrimeField>() -> Vec<Self> {
-        calculate_r2::<F>()
+    fn calculate_r2<F: GpuField>() -> Vec<Self> {
+        F::r2()
             .into_iter()
             .tuples()
             .map(|(lo, hi)| Self::new(((hi as u64) << 32) + (lo as u64)))
@@ -113,24 +184,13 @@ fn define_field<L: Limb>(name: &str, limbs: Vec<L>) -> String {
     )
 }
 
-/// Calculates `R ^ 2 mod P` and returns the result as a vector of 32bit limbs
-fn calculate_r2<F: PrimeField>() -> Vec<u32> {
-    // R ^ 2 mod P
-    BigUint::new(utils::limbs_of::<_, u32>(F::one()))
-        .modpow(
-            &BigUint::from_slice(&[2]),                          // ^ 2
-            &BigUint::new(utils::limbs_of::<_, u32>(F::char())), // mod P
-        )
-        .to_u32_digits()
-}
-
 /// Generates OpenCL constants and type definitions of prime-field `F`
 fn params<F, L: Limb>() -> String
 where
-    F: PrimeField,
+    F: GpuField,
 {
-    let one = L::limbs_of(F::one()); // Get Montgomery form of F::one()
-    let p = L::limbs_of(F::char()); // Get regular form of field modulus
+    let one = L::one_limbs::<F>(); // Get Montgomery form of F::one()
+    let p = L::modulus_limbs::<F>(); // Get field modulus in non-Montgomery form
     let r2 = L::calculate_r2::<F>();
     let limbs = one.len(); // Number of limbs
     let inv = L::calc_inv(p[0]);
@@ -142,7 +202,7 @@ where
     let one_def = define_field("FIELD_ONE", one);
     let zero_def = define_field("FIELD_ZERO", vec![L::zero(); limbs]);
     let inv_def = format!("#define FIELD_INV {}", inv.value());
-    let typedef = format!("typedef struct {{ FIELD_limb val[FIELD_LIMBS]; }} FIELD;");
+    let typedef = "typedef struct { FIELD_limb val[FIELD_LIMBS]; } FIELD;".to_string();
     join(
         &[
             limb_def,
@@ -163,7 +223,7 @@ where
 /// Find details in README.md
 pub fn field<F, L: Limb>(name: &str) -> String
 where
-    F: PrimeField,
+    F: GpuField,
 {
     join(
         &[
@@ -175,155 +235,4 @@ where
         "\n",
     )
     .replace("FIELD", name)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ff::Field;
-    use lazy_static::lazy_static;
-    use ocl::{OclPrm, ProQue};
-    use paired::bls12_381::{Fr, FrRepr};
-    use rand::{thread_rng, Rng};
-
-    #[derive(PartialEq, Debug, Clone, Copy)]
-    #[repr(transparent)]
-    pub struct GpuFr(pub Fr);
-    impl Default for GpuFr {
-        fn default() -> Self {
-            Self(Fr::zero())
-        }
-    }
-    unsafe impl OclPrm for GpuFr {}
-
-    lazy_static! {
-        static ref PROQUE: ProQue = {
-            static TEST_SRC: &str = include_str!("cl/test.cl");
-            let src = format!(
-                "{}\n{}\n{}",
-                field::<Fr, Limb32>("Fr32"),
-                field::<Fr, Limb64>("Fr64"),
-                TEST_SRC
-            );
-            ProQue::builder().src(src).dims(1).build().unwrap()
-        };
-    }
-
-    macro_rules! call_kernel {
-        ($name:expr, $($arg:expr),*) => {{
-            let mut cpu_buffer = vec![GpuFr::default()];
-            let buffer = PROQUE.create_buffer::<GpuFr>().unwrap();
-            buffer.write(&cpu_buffer).enq().unwrap();
-            let kernel =
-                PROQUE
-                .kernel_builder($name)
-                $(.arg($arg))*
-                .arg(&buffer)
-                .build().unwrap();
-            unsafe {
-                kernel.enq().unwrap();
-            }
-            buffer.read(&mut cpu_buffer).enq().unwrap();
-
-            cpu_buffer[0].0
-        }};
-    }
-
-    #[test]
-    fn test_add() {
-        let mut rng = thread_rng();
-        for _ in 0..10 {
-            let a = Fr::random(&mut rng);
-            let b = Fr::random(&mut rng);
-            let mut c = a.clone();
-            c.add_assign(&b);
-            assert_eq!(call_kernel!("test_add_32", GpuFr(a), GpuFr(b)), c);
-            assert_eq!(call_kernel!("test_add_64", GpuFr(a), GpuFr(b)), c);
-        }
-    }
-
-    #[test]
-    fn test_sub() {
-        let mut rng = thread_rng();
-        for _ in 0..10 {
-            let a = Fr::random(&mut rng);
-            let b = Fr::random(&mut rng);
-            let mut c = a.clone();
-            c.sub_assign(&b);
-            assert_eq!(call_kernel!("test_sub_32", GpuFr(a), GpuFr(b)), c);
-            assert_eq!(call_kernel!("test_sub_64", GpuFr(a), GpuFr(b)), c);
-        }
-    }
-
-    #[test]
-    fn test_mul() {
-        let mut rng = thread_rng();
-        for _ in 0..10 {
-            let a = Fr::random(&mut rng);
-            let b = Fr::random(&mut rng);
-            let mut c = a.clone();
-            c.mul_assign(&b);
-            assert_eq!(call_kernel!("test_mul_32", GpuFr(a), GpuFr(b)), c);
-            assert_eq!(call_kernel!("test_mul_64", GpuFr(a), GpuFr(b)), c);
-        }
-    }
-
-    #[test]
-    fn test_pow() {
-        let mut rng = thread_rng();
-        for _ in 0..10 {
-            let a = Fr::random(&mut rng);
-            let b = rng.gen::<u32>();
-            let c = a.pow([b as u64]);
-            assert_eq!(call_kernel!("test_pow_32", GpuFr(a), b), c);
-            assert_eq!(call_kernel!("test_pow_64", GpuFr(a), b), c);
-        }
-    }
-
-    #[test]
-    fn test_sqr() {
-        let mut rng = thread_rng();
-        for _ in 0..10 {
-            let a = Fr::random(&mut rng);
-            let mut b = a.clone();
-            b.square();
-            assert_eq!(call_kernel!("test_sqr_32", GpuFr(a)), b);
-            assert_eq!(call_kernel!("test_sqr_64", GpuFr(a)), b);
-        }
-    }
-
-    #[test]
-    fn test_double() {
-        let mut rng = thread_rng();
-        for _ in 0..10 {
-            let a = Fr::random(&mut rng);
-            let mut b = a.clone();
-            b.double();
-            assert_eq!(call_kernel!("test_double_32", GpuFr(a)), b);
-            assert_eq!(call_kernel!("test_double_64", GpuFr(a)), b);
-        }
-    }
-
-    #[test]
-    fn test_unmont() {
-        let mut rng = thread_rng();
-        for _ in 0..10 {
-            let a = Fr::random(&mut rng);
-            let b = unsafe { std::mem::transmute::<FrRepr, Fr>(a.into_repr()) };
-            assert_eq!(call_kernel!("test_unmont_32", GpuFr(a)), b);
-            assert_eq!(call_kernel!("test_unmont_64", GpuFr(a)), b);
-        }
-    }
-
-    #[test]
-    fn test_mont() {
-        let mut rng = thread_rng();
-        for _ in 0..10 {
-            let a_repr = Fr::random(&mut rng).into_repr();
-            let a = unsafe { std::mem::transmute::<FrRepr, Fr>(a_repr) };
-            let b = Fr::from_repr(a_repr).unwrap();
-            assert_eq!(call_kernel!("test_mont_32", GpuFr(a)), b);
-            assert_eq!(call_kernel!("test_mont_64", GpuFr(a)), b);
-        }
-    }
 }

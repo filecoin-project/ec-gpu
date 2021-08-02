@@ -1,18 +1,17 @@
-use crate::Limb;
-use ff::PrimeField;
+use crate::{GpuField, Limb};
 use itertools::*;
 
 /// Generates PTX-Assembly implementation of FIELD_add_/FIELD_sub_
 pub fn field_add_sub_nvidia<F, L: Limb>() -> String
 where
-    F: PrimeField,
+    F: GpuField,
 {
     let mut result = String::new();
     let (ptx_type, ptx_reg) = L::ptx_info();
 
     result.push_str("#ifdef NVIDIA\n");
     for op in &["sub", "add"] {
-        let len = L::limbs_of(F::one()).len();
+        let len = L::one_limbs::<F>().len();
 
         let mut src = format!("FIELD FIELD_{}_nvidia(FIELD a, FIELD b) {{\n", op);
         if len > 1 {
@@ -42,7 +41,7 @@ where
                 )
                 .as_str(),
             );
-            src.push_str(":");
+            src.push(':');
             let inps = join(
                 (0..len).map(|n| format!("\"+{}\"(a.val[{}])", ptx_reg, n)),
                 ", ",
