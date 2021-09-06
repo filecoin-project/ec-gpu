@@ -1,0 +1,11 @@
+[package]
+name = "ec-gpu"
+version = "0.1.0"
+authors = ["dignifiedquire <me@dignifiedquire.com>"]
+edition = "2018"
+description = "Traits for field and eliptic curve operations on GPUs"
+homepage = "https://github.com/filecoin-project/ff-cl-gen"
+repository = "https://github.com/filecoin-project/ff-cl-gen"
+license = "MIT/Apache-2.0"
+
+[dependencies]

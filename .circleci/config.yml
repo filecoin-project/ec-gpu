@@ -112,7 +112,7 @@ jobs:
       - run: source $BASH_ENV
       - run:
           name: Run cargo release build
-          command: cargo build --release
+          command: cargo build --all --release
 
 
 workflows:

@@ -1,23 +1,5 @@
-[package]
-name = "ff-cl-gen"
-version = "0.3.0"
-authors = ["Keyvan Kambakhsh <keyvankambakhsh@gmail.com>"]
-description = "OpenCL code generator for prime-fields"
-documentation = "https://docs.rs/ff-cl-gen"
-edition = "2018"
-homepage = "https://github.com/filecoin-project/ff-cl-gen"
-license = "MIT/Apache-2.0"
-repository = "https://github.com/filecoin-project/ff-cl-gen"
-
-[dependencies]
-itertools = { version = "0.8.0" }
-pairing = "0.21.0"
-
 [workspace]
 members = [
-  "gen-test"
+  "ec-gpu",
+  "ec-gpu-gen"
 ]
-
-[patch."https://github.com/filecoin-project/ff-cl-gen".ff-cl-gen]
-path = "./"
-features = ["gpu"]
