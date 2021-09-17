@@ -1,0 +1,20 @@
+[package]
+name = "ec-gpu-gen"
+version = "0.1.0"
+authors = ["dignifiedquire <me@dignifiedquire.com>"]
+edition = "2018"
+description = "Code generator for field and eliptic curve operations on the GPUs"
+homepage = "https://github.com/filecoin-project/ff-cl-gen"
+repository = "https://github.com/filecoin-project/ff-cl-gen"
+license = "MIT/Apache-2.0"
+
+[dependencies]
+ec-gpu = { path = "../ec-gpu", git = "https://github.com/filecoin-project/ff-cl-gen", branch = "halo" }
+
+[dev-dependencies]
+ff = "0.11.0"
+blstrs = { git = "https://github.com/filecoin-project/blstrs", branch = "halo", features = ["gpu"] }
+ocl = { version = "0.19.4", package = "fil-ocl"}
+rand = "0.8"
+lazy_static = "1.2"
+

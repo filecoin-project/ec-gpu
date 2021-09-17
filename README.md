@@ -1,6 +1,18 @@
-# ff-cl-gen [![Crates.io](https://img.shields.io/crates/v/ff-cl-gen.svg)](https://crates.io/crates/ff-cl-gen)
+# `ec-gpu` & `ec-gpu-gen`
 
-OpenCL code generator for finite-field arithmetic over prime fields constructed with Rust [ff](https://github.com/filecoin-project/ff) library.
+[![crates.io][crate-image-ec-gpu]][crate-link-ec-gpu]
+[![Documentation][doc-image-ec-gpu]][doc-link-ec-gpu]
+[![Build Status][build-image-ec-gpu]][build-link-ec-gpu]
+![minimum rustc 1.51][msrv-image-ec-gpu]
+[![dependency status][deps-image-ec-gpu]][deps-link-ec-gpu]
+
+[![crates.io][crate-image-ec-gpu-gen]][crate-link-ec-gpu-gen]
+[![Documentation][doc-image-ec-gpu-gen]][doc-link-ec-gpu-gen]
+[![Build Status][build-image-ec-gpu-gen]][build-link-ec-gpu-gen]
+![minimum rustc 1.51][msrv-image-ec-gpu-gen]
+[![dependency status][deps-image-ec-gpu-gen]][deps-link-ec-gpu-gen]
+
+OpenCL code generator for finite-field arithmetic over prime fields and elliptic curve arithmetic constructed with Rust.
 
 Notes:
  - Limbs are 32/64-bit long, by your choice.
@@ -8,13 +20,12 @@ Notes:
 
 ## Usage
 
-Generating OpenCL codes for Bls12-381 Fr elements:
+Generating OpenCL codes for `blstrs` Scalar elements:
 
 ```rust
-use paired::bls12_381::Fr;
-let src = ff_cl_gen::field::<Fr, Limb64>("Fr");
+use blstrs::Scalar;
+let src = ec_gpu_gen::field::<Scalar, Limb64>("Fr");
 ```
-
 Generated interface (`FIELD` is substituted with `Fr`):
 
 ```c
@@ -59,3 +70,26 @@ Unless you explicitly state otherwise, any contribution intentionally
 submitted for inclusion in the work by you, as defined in the Apache-2.0
 license, shall be dual licensed as above, without any additional terms or
 conditions.
+
+
+[crate-image-ec-gpu]: https://img.shields.io/crates/v/ec-gpu.svg
+[crate-link-ec-gpu]: https://crates.io/crates/ec-gpu
+[doc-image-ec-gpu]: https://docs.rs/ec-gpu/badge.svg
+[doc-link-ec-gpu]: https://docs.rs/ec-gpu
+[build-image-ec-gpu]: https://circleci.com/gh/filecoin-project/ff-cl-gen.svg?style=svg
+[build-link-ec-gpu]: https://circleci.com/gh/filecoin-project/ff-cl-gen
+[msrv-image-ec-gpu]: https://img.shields.io/badge/rustc-1.51+-blue.svg
+[deps-image-ec-gpu]: https://deps.rs/repo/github/filecoin-projectt/ff-cl-gen/status.svg
+[deps-link-ec-gpu]: https://deps.rs/repo/github/filecoin-project/ff-cl-gen
+
+
+[crate-image-ec-gpu-gen]: https://img.shields.io/crates/v/ec-gpu-gen.svg
+[crate-link-ec-gpu-gen]: https://crates.io/crates/ec-gpu-gen
+[doc-image-ec-gpu-gen]: https://docs.rs/ec-gpu-gen/badge.svg
+[doc-link-ec-gpu-gen]: https://docs.rs/ec-gpu-gen
+[build-image-ec-gpu-gen]: https://circleci.com/gh/filecoin-project/ff-cl-gen.svg?style=svg
+[build-link-ec-gpu-gen]: https://circleci.com/gh/filecoin-project/ff-cl-gen
+[msrv-image-ec-gpu-gen]: https://img.shields.io/badge/rustc-1.51+-blue.svg
+[deps-image-ec-gpu-gen]: https://deps.rs/repo/github/filecoin-projectt/ff-cl-gen/status.svg
+[deps-link-ec-gpu-gen]: https://deps.rs/repo/github/filecoin-project/ff-cl-gen
+

@@ -27,7 +27,7 @@ commands:
       - *restore-cache
       - run:
           name: Test (<< parameters.target >>)
-          command: TARGET=<< parameters.target >> cargo test
+          command: TARGET=<< parameters.target >> cargo test --all
           no_output_timeout: 15m
 
 jobs:
@@ -101,7 +101,7 @@ jobs:
       - run: source $BASH_ENV
       - run:
           name: Run cargo clippy
-          command: cargo clippy --all-features
+          command: cargo clippy --all-features --all -- -D warnings
 
   build:
     executor: default
@@ -112,7 +112,7 @@ jobs:
       - run: source $BASH_ENV
       - run:
           name: Run cargo release build
-          command: cargo build --release
+          command: cargo build --all --release
 
 
 workflows:
