@@ -9,11 +9,11 @@ repository = "https://github.com/filecoin-project/ff-cl-gen"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-ec-gpu = { path = "../ec-gpu", git = "https://github.com/filecoin-project/ff-cl-gen", branch = "halo" }
+ec-gpu = { path = "../ec-gpu", git = "https://github.com/filecoin-project/ec-gpu", branch = "master" }
 
 [dev-dependencies]
 ff = "0.11.0"
-blstrs = { git = "https://github.com/filecoin-project/blstrs", branch = "halo", features = ["gpu"] }
+blstrs = { git = "https://github.com/filecoin-project/blstrs", branch = "master", features = ["gpu"] }
 ocl = { version = "0.19.4", package = "fil-ocl"}
 rand = "0.8"
 lazy_static = "1.2"
