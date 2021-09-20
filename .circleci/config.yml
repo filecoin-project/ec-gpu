@@ -3,7 +3,7 @@ version: 2.1
 executors:
   default:
     machine:
-      image: ubuntu-1604-cuda-10.1:201909-23
+      image: ubuntu-2004-cuda-11.2:202103-01
     working_directory: ~/gpuci
     resource_class: gpu.nvidia.medium
 
@@ -18,6 +18,14 @@ restore-cache: &restore-cache
       - repo-source-{{ .Branch }}-{{ .Revision }}
 
 commands:
+  set-env-path:
+    steps:
+      - run:
+          name: Set the PATH env variable
+          command: |
+            echo 'export PATH="$HOME:~/.cargo/bin:/usr/local/cuda-11.2/bin:$PATH"' | tee --append $BASH_ENV
+            source $BASH_ENV
+
   test_target:
     parameters:
       target:
@@ -37,10 +45,9 @@ jobs:
     steps:
       - checkout
       - run: curl https://sh.rustup.rs -sSf | sh -s -- -y
-      - run: echo 'export PATH="$HOME:~/.cargo/bin:$PATH"' >> $BASH_ENV
+      - set-env-path
       - run: echo $BASH_ENV
       - run: echo $HOME
-      - run: source $BASH_ENV
       - run: cargo --version
       - run: rustc --version
       - run:
@@ -73,10 +80,8 @@ jobs:
   test_x86_64-unknown-linux-gnu:
     executor: default
     steps:
-      - run: echo 'export PATH="$HOME:~/.cargo/bin:$PATH"' >> $BASH_ENV
-      - run: source $BASH_ENV
-      - run: sudo apt-get update -y
-      - run: apt-cache search opencl
+      - set-env-path
+      - run: sudo apt update
       - run: sudo apt install -y ocl-icd-opencl-dev
       - test_target:
           target: "x86_64-unknown-linux-gnu"
@@ -86,8 +91,7 @@ jobs:
     steps:
       - *restore-workspace
       - *restore-cache
-      - run: echo 'export PATH="$HOME:~/.cargo/bin:$PATH"' >> $BASH_ENV
-      - run: source $BASH_ENV
+      - set-env-path
       - run:
           name: Run cargo fmt
           command: cargo fmt --all -- --check
@@ -97,8 +101,7 @@ jobs:
     steps:
       - *restore-workspace
       - *restore-cache
-      - run: echo 'export PATH="$HOME:~/.cargo/bin:$PATH"' >> $BASH_ENV
-      - run: source $BASH_ENV
+      - set-env-path
       - run:
           name: Run cargo clippy
           command: cargo clippy --all-features --all -- -D warnings
@@ -108,8 +111,7 @@ jobs:
     steps:
       - *restore-workspace
       - *restore-cache
-      - run: echo 'export PATH="$HOME:~/.cargo/bin:$PATH"' >> $BASH_ENV
-      - run: source $BASH_ENV
+      - set-env-path
       - run:
           name: Run cargo release build
           command: cargo build --all --release

@@ -12,7 +12,7 @@
 ![minimum rustc 1.51][msrv-image-ec-gpu-gen]
 [![dependency status][deps-image-ec-gpu-gen]][deps-link-ec-gpu-gen]
 
-OpenCL code generator for finite-field arithmetic over prime fields and elliptic curve arithmetic constructed with Rust.
+CUDA/OpenCL code generator for finite-field arithmetic over prime fields and elliptic curve arithmetic constructed with Rust.
 
 Notes:
  - Limbs are 32/64-bit long, by your choice.
@@ -20,7 +20,7 @@ Notes:
 
 ## Usage
 
-Generating OpenCL codes for `blstrs` Scalar elements:
+Generating CUDA/OpenCL codes for `blstrs` Scalar elements:
 
 ```rust
 use blstrs::Scalar;

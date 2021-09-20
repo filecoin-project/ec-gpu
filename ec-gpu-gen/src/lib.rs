@@ -156,7 +156,7 @@ fn define_field<L: Limb>(name: &str, limbs: Vec<L>) -> String {
     )
 }
 
-/// Generates OpenCL constants and type definitions of prime-field `F`
+/// Generates CUDA/OpenCL constants and type definitions of prime-field `F`
 fn params<F, L: Limb>() -> String
 where
     F: GpuField,
@@ -189,7 +189,7 @@ where
     .join("\n")
 }
 
-/// Returns OpenCL source-code of a ff::PrimeField with name `name`
+/// Returns CUDA/OpenCL source-code of a ff::PrimeField with name `name`
 /// Find details in README.md
 ///
 /// The code from the [`common()`] call needs to be included before this on is used.
@@ -206,7 +206,8 @@ where
     .replace("FIELD", name)
 }
 
-/// Returns OpenCL source-code that contains definitions/functions that are shared across fields.
+/// Returns CUDA/OpenCL source-code that contains definitions/functions that are shared across
+/// fields.
 ///
 /// It needs to be called before any other function like [`field`] or [`gen_ec_source`] is called,
 /// as it contains deinitions, used in those.
@@ -264,6 +265,8 @@ mod tests {
             unsafe {
                 kernel.enq().unwrap();
             }
+            // Make sure the queue is fully processed
+            PROQUE.finish().unwrap();
             buffer.read(&mut cpu_buffer).enq().unwrap();
 
             cpu_buffer[0].0
