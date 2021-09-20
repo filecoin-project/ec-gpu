@@ -24,7 +24,10 @@ Generating OpenCL codes for `blstrs` Scalar elements:
 
 ```rust
 use blstrs::Scalar;
-let src = ec_gpu_gen::field::<Scalar, Limb64>("Fr");
+let src = [
+    ec_gpu_gen::common(),
+    ec_gpu_gen::field::<Scalar, ec_gpu_gen::Limb64>("Fr")
+].join("\n");
 ```
 Generated interface (`FIELD` is substituted with `Fr`):
 
