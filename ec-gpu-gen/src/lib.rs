@@ -8,31 +8,17 @@ static FIELD2_SRC: &str = include_str!("cl/field2.cl");
 static EC_SRC: &str = include_str!("cl/ec.cl");
 
 /// Generates the source for the elliptic curve and group operations, as defined by `E`.
-pub fn gen_ec_source<E: GpuEngine>(limb64: bool) -> String {
+///
+/// The code from the [`common()`] call needs to be included before this on is used.
+pub fn gen_ec_source<E: GpuEngine, L: Limb>() -> String {
     vec![
-        gen_scalar_source::<E>(limb64),
-        gen_fp_source::<E>(limb64),
+        field::<E::Scalar, L>("Fr"),
+        field::<E::Fp, L>("Fq"),
         field2("Fq2", "Fq"),
         ec("Fq", "G1"),
         ec("Fq2", "G2"),
     ]
     .join("\n\n")
-}
-
-fn gen_scalar_source<E: GpuEngine>(limb64: bool) -> String {
-    if limb64 {
-        field::<E::Scalar, Limb64>("Fr")
-    } else {
-        field::<E::Scalar, Limb32>("Fr")
-    }
-}
-
-fn gen_fp_source<E: GpuEngine>(limb64: bool) -> String {
-    if limb64 {
-        field::<E::Fp, Limb64>("Fq")
-    } else {
-        field::<E::Fp, Limb32>("Fq")
-    }
 }
 
 fn ec(field: &str, point: &str) -> String {
@@ -170,7 +156,7 @@ fn define_field<L: Limb>(name: &str, limbs: Vec<L>) -> String {
     )
 }
 
-/// Generates OpenCL constants and type definitions of prime-field `F`
+/// Generates CUDA/OpenCL constants and type definitions of prime-field `F`
 fn params<F, L: Limb>() -> String
 where
     F: GpuField,
@@ -203,20 +189,30 @@ where
     .join("\n")
 }
 
-/// Returns OpenCL source-code of a ff::PrimeField with name `name`
+/// Returns CUDA/OpenCL source-code of a ff::PrimeField with name `name`
 /// Find details in README.md
+///
+/// The code from the [`common()`] call needs to be included before this on is used.
 pub fn field<F, L: Limb>(name: &str) -> String
 where
     F: GpuField,
 {
     [
-        COMMON_SRC.to_string(),
         params::<F, L>(),
         nvidia::field_add_sub_nvidia::<F, L>().expect("preallocated"),
         String::from(FIELD_SRC),
     ]
     .join("\n")
     .replace("FIELD", name)
+}
+
+/// Returns CUDA/OpenCL source-code that contains definitions/functions that are shared across
+/// fields.
+///
+/// It needs to be called before any other function like [`field`] or [`gen_ec_source`] is called,
+/// as it contains deinitions, used in those.
+pub fn common() -> String {
+    COMMON_SRC.to_string()
 }
 
 #[cfg(test)]
@@ -244,6 +240,7 @@ mod tests {
     lazy_static! {
         static ref PROQUE: ProQue = {
             let src = vec![
+                common(),
                 field::<Scalar, Limb32>("Scalar32"),
                 field::<Scalar, Limb64>("Scalar64"),
                 TEST_SRC.to_string(),
@@ -268,6 +265,8 @@ mod tests {
             unsafe {
                 kernel.enq().unwrap();
             }
+            // Make sure the queue is fully processed
+            PROQUE.finish().unwrap();
             buffer.read(&mut cpu_buffer).enq().unwrap();
 
             cpu_buffer[0].0

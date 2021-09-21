@@ -14,7 +14,7 @@ typedef struct {
 } POINT_projective;
 
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
-POINT_projective POINT_double(POINT_projective inp) {
+DEVICE POINT_projective POINT_double(POINT_projective inp) {
   const FIELD local_zero = FIELD_ZERO;
   if(FIELD_eq(inp.z, local_zero)) {
       return inp;
@@ -42,7 +42,7 @@ POINT_projective POINT_double(POINT_projective inp) {
 }
 
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
-POINT_projective POINT_add_mixed(POINT_projective a, POINT_affine b) {
+DEVICE POINT_projective POINT_add_mixed(POINT_projective a, POINT_affine b) {
   const FIELD local_zero = FIELD_ZERO;
   if(FIELD_eq(a.z, local_zero)) {
     const FIELD local_one = FIELD_ONE;
@@ -82,7 +82,7 @@ POINT_projective POINT_add_mixed(POINT_projective a, POINT_affine b) {
 }
 
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-add-2007-bl
-POINT_projective POINT_add(POINT_projective a, POINT_projective b) {
+DEVICE POINT_projective POINT_add(POINT_projective a, POINT_projective b) {
 
   const FIELD local_zero = FIELD_ZERO;
   if(FIELD_eq(a.z, local_zero)) return b;

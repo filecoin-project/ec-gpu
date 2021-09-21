@@ -10,11 +10,15 @@ where
     let mut result = String::new();
     let (ptx_type, ptx_reg) = L::ptx_info();
 
-    writeln!(result, "#ifdef NVIDIA")?;
+    writeln!(result, "#if defined(OPENCL_NVIDIA) || defined(CUDA)\n")?;
     for op in &["sub", "add"] {
         let len = L::one_limbs::<F>().len();
 
-        writeln!(result, "FIELD FIELD_{}_nvidia(FIELD a, FIELD b) {{", op)?;
+        writeln!(
+            result,
+            "DEVICE FIELD FIELD_{}_nvidia(FIELD a, FIELD b) {{",
+            op
+        )?;
         if len > 1 {
             write!(result, "asm(")?;
             writeln!(result, "\"{}.cc.{} %0, %0, %{};\\r\\n\"", op, ptx_type, len)?;
