@@ -26,16 +26,18 @@ commands:
             echo 'export PATH="$HOME:~/.cargo/bin:/usr/local/cuda-11.2/bin:$PATH"' | tee --append $BASH_ENV
             source $BASH_ENV
 
-  test_target:
+  test-with-args:
     parameters:
-      target:
+      cargo-args:
+        description: Addtional arguments for the cargo command
         type: string
+        default: ""
     steps:
-      - *restore-workspace
-      - *restore-cache
+      - run: sudo apt update
+      - run: sudo apt install -y ocl-icd-opencl-dev
       - run:
-          name: Test (<< parameters.target >>)
-          command: TARGET=<< parameters.target >> cargo test --all
+          name: Test (<< parameters.cargo-args >>)
+          command: cargo test --workspace --no-default-features  << parameters.cargo-args >>
           no_output_timeout: 15m
 
 jobs:
@@ -77,14 +79,23 @@ jobs:
             - "~/.cargo"
             - "~/.rustup"
 
-  test_x86_64-unknown-linux-gnu:
+  test_cuda:
     executor: default
     steps:
+      - *restore-workspace
+      - *restore-cache
       - set-env-path
-      - run: sudo apt update
-      - run: sudo apt install -y ocl-icd-opencl-dev
-      - test_target:
-          target: "x86_64-unknown-linux-gnu"
+      - test-with-args:
+          cargo-args: "--features cuda"
+
+  test_opencl:
+    executor: default
+    steps:
+      - *restore-workspace
+      - *restore-cache
+      - set-env-path
+      - test-with-args:
+          cargo-args: "--features opencl"
 
   rustfmt:
     executor: default
@@ -129,7 +140,10 @@ workflows:
       - clippy:
           requires:
             - cargo_fetch
-      - test_x86_64-unknown-linux-gnu:
+      - test_cuda:
+          requires:
+            - cargo_fetch
+      - test_opencl:
           requires:
             - cargo_fetch
       - build:

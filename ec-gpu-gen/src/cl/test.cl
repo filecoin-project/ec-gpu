@@ -31,6 +31,8 @@ KERNEL void test_double_32(Scalar32 a, GLOBAL Scalar32 *result) {
 }
 
 ////////////
+// CUDA doesn't support 64-bit limbs
+#ifndef CUDA
 
 KERNEL void test_add_64(Scalar64 a, Scalar64 b, GLOBAL Scalar64 *result) {
   *result = Scalar64_add(a, b);
@@ -63,3 +65,4 @@ KERNEL void test_sqr_64(Scalar64 a, GLOBAL Scalar64 *result) {
 KERNEL void test_double_64(Scalar64 a, GLOBAL Scalar64 *result) {
   *result = Scalar64_double(a);
 }
+#endif

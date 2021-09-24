@@ -219,11 +219,20 @@ pub fn common() -> String {
 mod tests {
     use super::*;
 
+    use std::sync::Mutex;
+
+    #[cfg(feature = "cuda")]
+    use rust_gpu_tools::cuda;
+    #[cfg(feature = "opencl")]
+    use rust_gpu_tools::opencl;
+    use rust_gpu_tools::{program_closures, Device, GPUError, Program};
+
     use blstrs::Scalar;
     use ff::{Field, PrimeField};
     use lazy_static::lazy_static;
-    use ocl::{OclPrm, ProQue};
     use rand::{thread_rng, Rng};
+
+    static TEST_SRC: &str = include_str!("./cl/test.cl");
 
     #[derive(PartialEq, Debug, Clone, Copy)]
     #[repr(transparent)]
@@ -233,44 +242,141 @@ mod tests {
             Self(Scalar::zero())
         }
     }
-    unsafe impl OclPrm for GpuScalar {}
 
-    static TEST_SRC: &str = include_str!("./cl/test.cl");
+    #[cfg(feature = "cuda")]
+    impl cuda::KernelArgument for GpuScalar {
+        fn as_c_void(&self) -> *mut std::ffi::c_void {
+            &self.0 as *const _ as _
+        }
+    }
 
+    #[cfg(feature = "opencl")]
+    impl opencl::KernelArgument for GpuScalar {
+        fn push(&self, kernel: &mut opencl::Kernel) {
+            kernel.builder.set_arg(&self.0);
+        }
+    }
+
+    /// The `run` call needs to return a result, use this struct as placeholder.
+    #[derive(Debug)]
+    struct NoError;
+    impl From<GPUError> for NoError {
+        fn from(_error: GPUError) -> Self {
+            Self
+        }
+    }
+
+    // CUDA doesn't support 64-bit limbs
+    #[cfg(feature = "cuda")]
+    fn source_cuda() -> String {
+        let src = vec![
+            common(),
+            field::<Scalar, Limb32>("Scalar32"),
+            TEST_SRC.to_string(),
+        ]
+        .join("\n\n");
+        println!("{}", src);
+        src
+    }
+
+    #[cfg(feature = "opencl")]
+    fn source_opencl() -> String {
+        let src = vec![
+            common(),
+            field::<Scalar, Limb32>("Scalar32"),
+            field::<Scalar, Limb64>("Scalar64"),
+            TEST_SRC.to_string(),
+        ]
+        .join("\n\n");
+        println!("{}", src);
+        src
+    }
+
+    #[cfg(feature = "cuda")]
     lazy_static! {
-        static ref PROQUE: ProQue = {
-            let src = vec![
-                common(),
-                field::<Scalar, Limb32>("Scalar32"),
-                field::<Scalar, Limb64>("Scalar64"),
-                TEST_SRC.to_string(),
-            ]
-            .join("\n\n");
-            println!("{}", src);
-            ProQue::builder().src(src).dims(1).build().unwrap()
+        static ref CUDA_PROGRAM: Mutex<Program> = {
+            use std::ffi::CString;
+            use std::fs;
+            use std::process::Command;
+
+            let tmpdir = tempfile::tempdir().expect("Cannot create temporary directory.");
+            let source_path = tmpdir.path().join("kernel.cu");
+            fs::write(&source_path, source_cuda().as_bytes())
+                .expect("Cannot write kernel source file.");
+            let fatbin_path = tmpdir.path().join("kernel.fatbin");
+
+            let nvcc = Command::new("nvcc")
+                .arg("--fatbin")
+                .arg("--gpu-architecture=sm_86")
+                .arg("--generate-code=arch=compute_86,code=sm_86")
+                .arg("--generate-code=arch=compute_80,code=sm_80")
+                .arg("--generate-code=arch=compute_75,code=sm_75")
+                .arg("--output-file")
+                .arg(&fatbin_path)
+                .arg(&source_path)
+                .status()
+                .expect("Cannot run nvcc.");
+
+            if !nvcc.success() {
+                panic!(
+                    "nvcc failed. See the kernel source at {}.",
+                    source_path.display()
+                );
+            }
+
+            let device = *Device::all().first().expect("Cannot get a default device.");
+            let cuda_device = device.cuda_device().unwrap();
+            let fatbin_path_cstring =
+                CString::new(fatbin_path.to_str().expect("path is not valid UTF-8."))
+                    .expect("path contains NULL byte.");
+            let program =
+                cuda::Program::from_binary(cuda_device, fatbin_path_cstring.as_c_str()).unwrap();
+            Mutex::new(Program::Cuda(program))
         };
     }
 
-    macro_rules! call_kernel {
-        ($name:expr, $($arg:expr),*) => {{
-            let mut cpu_buffer = vec![GpuScalar::default()];
-            let buffer = PROQUE.create_buffer::<GpuScalar>().unwrap();
-            buffer.write(&cpu_buffer).enq().unwrap();
-            let kernel =
-                PROQUE
-                .kernel_builder($name)
-                $(.arg($arg))*
-                .arg(&buffer)
-                .build().unwrap();
-            unsafe {
-                kernel.enq().unwrap();
-            }
-            // Make sure the queue is fully processed
-            PROQUE.finish().unwrap();
-            buffer.read(&mut cpu_buffer).enq().unwrap();
+    #[cfg(feature = "opencl")]
+    lazy_static! {
+        static ref OPENCL_PROGRAM: Mutex<Program> = {
+            let device = *Device::all().first().expect("Cannot get a default device");
+            let opencl_device = device.opencl_device().unwrap();
+            let program = opencl::Program::from_opencl(opencl_device, &source_opencl()).unwrap();
+            Mutex::new(Program::Opencl(program))
+        };
+    }
 
-            cpu_buffer[0].0
-        }};
+    fn call_kernel(name: &str, scalars: &[GpuScalar], uints: &[u32]) -> Scalar {
+        let closures = program_closures!(|program, _args| -> Result<Scalar, NoError> {
+            let mut cpu_buffer = vec![GpuScalar::default()];
+            let buffer = program.create_buffer_from_slice(&cpu_buffer).unwrap();
+
+            let mut kernel = program.create_kernel(name, 1, 64).unwrap();
+            for scalar in scalars {
+                kernel = kernel.arg(scalar);
+            }
+            for uint in uints {
+                kernel = kernel.arg(uint);
+            }
+            kernel.arg(&buffer).run().unwrap();
+
+            program.read_into_buffer(&buffer, &mut cpu_buffer).unwrap();
+            Ok(cpu_buffer[0].0)
+        });
+
+        #[cfg(all(feature = "cuda", not(feature = "opencl")))]
+        return CUDA_PROGRAM.lock().unwrap().run(closures, ()).unwrap();
+
+        #[cfg(all(feature = "opencl", not(feature = "cuda")))]
+        return OPENCL_PROGRAM.lock().unwrap().run(closures, ()).unwrap();
+
+        // When both features are enabled, check if the results are the same
+        #[cfg(all(feature = "cuda", feature = "opencl"))]
+        {
+            let cuda_result = CUDA_PROGRAM.lock().unwrap().run(closures, ()).unwrap();
+            let opencl_result = OPENCL_PROGRAM.lock().unwrap().run(closures, ()).unwrap();
+            assert_eq!(cuda_result, opencl_result);
+            cuda_result
+        }
     }
 
     #[test]
@@ -281,8 +387,15 @@ mod tests {
             let b = Scalar::random(&mut rng);
             let c = a + b;
 
-            assert_eq!(call_kernel!("test_add_32", GpuScalar(a), GpuScalar(b)), c);
-            assert_eq!(call_kernel!("test_add_64", GpuScalar(a), GpuScalar(b)), c);
+            assert_eq!(
+                call_kernel("test_add_32", &vec![GpuScalar(a), GpuScalar(b)], &[]),
+                c
+            );
+            #[cfg(not(feature = "cuda"))]
+            assert_eq!(
+                call_kernel("test_add_64", &vec![GpuScalar(a), GpuScalar(b)], &[]),
+                c
+            );
         }
     }
 
@@ -293,8 +406,15 @@ mod tests {
             let a = Scalar::random(&mut rng);
             let b = Scalar::random(&mut rng);
             let c = a - b;
-            assert_eq!(call_kernel!("test_sub_32", GpuScalar(a), GpuScalar(b)), c);
-            assert_eq!(call_kernel!("test_sub_64", GpuScalar(a), GpuScalar(b)), c);
+            assert_eq!(
+                call_kernel("test_sub_32", &vec![GpuScalar(a), GpuScalar(b)], &[]),
+                c
+            );
+            #[cfg(not(feature = "cuda"))]
+            assert_eq!(
+                call_kernel("test_sub_64", &vec![GpuScalar(a), GpuScalar(b)], &[]),
+                c
+            );
         }
     }
 
@@ -306,8 +426,15 @@ mod tests {
             let b = Scalar::random(&mut rng);
             let c = a * b;
 
-            assert_eq!(call_kernel!("test_mul_32", GpuScalar(a), GpuScalar(b)), c);
-            assert_eq!(call_kernel!("test_mul_64", GpuScalar(a), GpuScalar(b)), c);
+            assert_eq!(
+                call_kernel("test_mul_32", &vec![GpuScalar(a), GpuScalar(b)], &[]),
+                c
+            );
+            #[cfg(not(feature = "cuda"))]
+            assert_eq!(
+                call_kernel("test_mul_64", &vec![GpuScalar(a), GpuScalar(b)], &[]),
+                c
+            );
         }
     }
 
@@ -318,8 +445,9 @@ mod tests {
             let a = Scalar::random(&mut rng);
             let b = rng.gen::<u32>();
             let c = a.pow_vartime([b as u64]);
-            assert_eq!(call_kernel!("test_pow_32", GpuScalar(a), b), c);
-            assert_eq!(call_kernel!("test_pow_64", GpuScalar(a), b), c);
+            assert_eq!(call_kernel("test_pow_32", &vec![GpuScalar(a)], &vec![b]), c);
+            #[cfg(not(feature = "cuda"))]
+            assert_eq!(call_kernel("test_pow_64", &vec![GpuScalar(a)], &vec![b]), c);
         }
     }
 
@@ -330,8 +458,9 @@ mod tests {
             let a = Scalar::random(&mut rng);
             let b = a.square();
 
-            assert_eq!(call_kernel!("test_sqr_32", GpuScalar(a)), b);
-            assert_eq!(call_kernel!("test_sqr_64", GpuScalar(a)), b);
+            assert_eq!(call_kernel("test_sqr_32", &vec![GpuScalar(a)], &[]), b);
+            #[cfg(not(feature = "cuda"))]
+            assert_eq!(call_kernel("test_sqr_64", &vec![GpuScalar(a)], &[]), b);
         }
     }
 
@@ -342,8 +471,9 @@ mod tests {
             let a = Scalar::random(&mut rng);
             let b = a.double();
 
-            assert_eq!(call_kernel!("test_double_32", GpuScalar(a)), b);
-            assert_eq!(call_kernel!("test_double_64", GpuScalar(a)), b);
+            assert_eq!(call_kernel("test_double_32", &vec![GpuScalar(a)], &[]), b);
+            #[cfg(not(feature = "cuda"))]
+            assert_eq!(call_kernel("test_double_64", &vec![GpuScalar(a)], &[]), b);
         }
     }
 
@@ -353,8 +483,9 @@ mod tests {
         for _ in 0..10 {
             let a = Scalar::random(&mut rng);
             let b: Scalar = unsafe { std::mem::transmute(a.to_repr()) };
-            assert_eq!(call_kernel!("test_unmont_32", GpuScalar(a)), b);
-            assert_eq!(call_kernel!("test_unmont_64", GpuScalar(a)), b);
+            assert_eq!(call_kernel("test_unmont_32", &vec![GpuScalar(a)], &[]), b);
+            #[cfg(not(feature = "cuda"))]
+            assert_eq!(call_kernel("test_unmont_64", &vec![GpuScalar(a)], &[]), b);
         }
     }
 
@@ -365,8 +496,9 @@ mod tests {
             let a_repr = Scalar::random(&mut rng).to_repr();
             let a: Scalar = unsafe { std::mem::transmute(a_repr) };
             let b = Scalar::from_repr(a_repr).unwrap();
-            assert_eq!(call_kernel!("test_mont_32", GpuScalar(a)), b);
-            assert_eq!(call_kernel!("test_mont_64", GpuScalar(a)), b);
+            assert_eq!(call_kernel("test_mont_32", &vec![GpuScalar(a)], &[]), b);
+            #[cfg(not(feature = "cuda"))]
+            assert_eq!(call_kernel("test_mont_64", &vec![GpuScalar(a)], &[]), b);
         }
     }
 }
