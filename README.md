@@ -57,6 +57,10 @@ bool FIELD_get_bit(FIELD l, uint i); // Get `i`th bit (From most significant dig
 uint FIELD_get_bits(FIELD l, uint skip, uint window); // Get `window` consecutive bits, (Starting from `skip`th bit from most significant digit)
 ```
 
+## Tests
+
+In order to run the tests, you need to enable one (or both) of `tests-cuda` and `tests-opencl`.
+
 ## License
 
 Licensed under either of

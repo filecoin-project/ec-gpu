@@ -22,5 +22,5 @@ tempfile = "3.2.0"
 [features]
 default = []
 # Those features are needed for running the tests only
-cuda = ["rust-gpu-tools/cuda"]
-opencl = ["rust-gpu-tools/opencl"]
+tests-cuda = ["rust-gpu-tools/cuda"]
+tests-opencl = ["rust-gpu-tools/opencl"]
