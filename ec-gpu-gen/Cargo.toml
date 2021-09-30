@@ -9,12 +9,12 @@ repository = "https://github.com/filecoin-project/ff-cl-gen"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-ec-gpu = { path = "../ec-gpu", git = "https://github.com/filecoin-project/ec-gpu", branch = "master" }
+ec-gpu = "0.1.0"
 
 [dev-dependencies]
 ff = "0.11.0"
-blstrs = { git = "https://github.com/filecoin-project/blstrs", branch = "master", features = ["gpu"] }
-rust-gpu-tools = { git = "https://github.com/filecoin-project/rust-gpu-tools", branch = "master", default-features = false }
+blstrs = { version = "0.4.0", features = ["gpu"] }
+rust-gpu-tools = { version = "0.5.0", default-features = false }
 rand = "0.8"
 lazy_static = "1.2"
 tempfile = "3.2.0"
