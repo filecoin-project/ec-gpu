@@ -215,15 +215,15 @@ pub fn common() -> String {
     COMMON_SRC.to_string()
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(feature = "tests-opencl", feature = "tests-cuda")))]
 mod tests {
     use super::*;
 
     use std::sync::Mutex;
 
-    #[cfg(feature = "cuda")]
+    #[cfg(feature = "tests-cuda")]
     use rust_gpu_tools::cuda;
-    #[cfg(feature = "opencl")]
+    #[cfg(feature = "tests-opencl")]
     use rust_gpu_tools::opencl;
     use rust_gpu_tools::{program_closures, Device, GPUError, Program};
 
@@ -243,14 +243,14 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "cuda")]
+    #[cfg(feature = "tests-cuda")]
     impl cuda::KernelArgument for GpuScalar {
         fn as_c_void(&self) -> *mut std::ffi::c_void {
             &self.0 as *const _ as _
         }
     }
 
-    #[cfg(feature = "opencl")]
+    #[cfg(feature = "tests-opencl")]
     impl opencl::KernelArgument for GpuScalar {
         fn push(&self, kernel: &mut opencl::Kernel) {
             kernel.builder.set_arg(&self.0);
@@ -267,7 +267,7 @@ mod tests {
     }
 
     // CUDA doesn't support 64-bit limbs
-    #[cfg(feature = "cuda")]
+    #[cfg(feature = "tests-cuda")]
     fn source_cuda() -> String {
         let src = vec![
             common(),
@@ -279,7 +279,7 @@ mod tests {
         src
     }
 
-    #[cfg(feature = "opencl")]
+    #[cfg(feature = "tests-opencl")]
     fn source_opencl() -> String {
         let src = vec![
             common(),
@@ -292,7 +292,7 @@ mod tests {
         src
     }
 
-    #[cfg(feature = "cuda")]
+    #[cfg(feature = "tests-cuda")]
     lazy_static! {
         static ref CUDA_PROGRAM: Mutex<Program> = {
             use std::ffi::CString;
@@ -335,7 +335,7 @@ mod tests {
         };
     }
 
-    #[cfg(feature = "opencl")]
+    #[cfg(feature = "tests-opencl")]
     lazy_static! {
         static ref OPENCL_PROGRAM: Mutex<Program> = {
             let device = *Device::all().first().expect("Cannot get a default device");
@@ -363,14 +363,14 @@ mod tests {
             Ok(cpu_buffer[0].0)
         });
 
-        #[cfg(all(feature = "cuda", not(feature = "opencl")))]
+        #[cfg(all(feature = "tests-cuda", not(feature = "tests-opencl")))]
         return CUDA_PROGRAM.lock().unwrap().run(closures, ()).unwrap();
 
-        #[cfg(all(feature = "opencl", not(feature = "cuda")))]
+        #[cfg(all(feature = "tests-opencl", not(feature = "tests-cuda")))]
         return OPENCL_PROGRAM.lock().unwrap().run(closures, ()).unwrap();
 
         // When both features are enabled, check if the results are the same
-        #[cfg(all(feature = "cuda", feature = "opencl"))]
+        #[cfg(all(feature = "tests-cuda", feature = "tests-opencl"))]
         {
             let cuda_result = CUDA_PROGRAM.lock().unwrap().run(closures, ()).unwrap();
             let opencl_result = OPENCL_PROGRAM.lock().unwrap().run(closures, ()).unwrap();
@@ -391,7 +391,7 @@ mod tests {
                 call_kernel("test_add_32", &vec![GpuScalar(a), GpuScalar(b)], &[]),
                 c
             );
-            #[cfg(not(feature = "cuda"))]
+            #[cfg(not(feature = "tests-cuda"))]
             assert_eq!(
                 call_kernel("test_add_64", &vec![GpuScalar(a), GpuScalar(b)], &[]),
                 c
@@ -410,7 +410,7 @@ mod tests {
                 call_kernel("test_sub_32", &vec![GpuScalar(a), GpuScalar(b)], &[]),
                 c
             );
-            #[cfg(not(feature = "cuda"))]
+            #[cfg(not(feature = "tests-cuda"))]
             assert_eq!(
                 call_kernel("test_sub_64", &vec![GpuScalar(a), GpuScalar(b)], &[]),
                 c
@@ -430,7 +430,7 @@ mod tests {
                 call_kernel("test_mul_32", &vec![GpuScalar(a), GpuScalar(b)], &[]),
                 c
             );
-            #[cfg(not(feature = "cuda"))]
+            #[cfg(not(feature = "tests-cuda"))]
             assert_eq!(
                 call_kernel("test_mul_64", &vec![GpuScalar(a), GpuScalar(b)], &[]),
                 c
@@ -446,7 +446,7 @@ mod tests {
             let b = rng.gen::<u32>();
             let c = a.pow_vartime([b as u64]);
             assert_eq!(call_kernel("test_pow_32", &vec![GpuScalar(a)], &vec![b]), c);
-            #[cfg(not(feature = "cuda"))]
+            #[cfg(not(feature = "tests-cuda"))]
             assert_eq!(call_kernel("test_pow_64", &vec![GpuScalar(a)], &vec![b]), c);
         }
     }
@@ -459,7 +459,7 @@ mod tests {
             let b = a.square();
 
             assert_eq!(call_kernel("test_sqr_32", &vec![GpuScalar(a)], &[]), b);
-            #[cfg(not(feature = "cuda"))]
+            #[cfg(not(feature = "tests-cuda"))]
             assert_eq!(call_kernel("test_sqr_64", &vec![GpuScalar(a)], &[]), b);
         }
     }
@@ -472,7 +472,7 @@ mod tests {
             let b = a.double();
 
             assert_eq!(call_kernel("test_double_32", &vec![GpuScalar(a)], &[]), b);
-            #[cfg(not(feature = "cuda"))]
+            #[cfg(not(feature = "tests-cuda"))]
             assert_eq!(call_kernel("test_double_64", &vec![GpuScalar(a)], &[]), b);
         }
     }
@@ -484,7 +484,7 @@ mod tests {
             let a = Scalar::random(&mut rng);
             let b: Scalar = unsafe { std::mem::transmute(a.to_repr()) };
             assert_eq!(call_kernel("test_unmont_32", &vec![GpuScalar(a)], &[]), b);
-            #[cfg(not(feature = "cuda"))]
+            #[cfg(not(feature = "tests-cuda"))]
             assert_eq!(call_kernel("test_unmont_64", &vec![GpuScalar(a)], &[]), b);
         }
     }
@@ -497,7 +497,7 @@ mod tests {
             let a: Scalar = unsafe { std::mem::transmute(a_repr) };
             let b = Scalar::from_repr(a_repr).unwrap();
             assert_eq!(call_kernel("test_mont_32", &vec![GpuScalar(a)], &[]), b);
-            #[cfg(not(feature = "cuda"))]
+            #[cfg(not(feature = "tests-cuda"))]
             assert_eq!(call_kernel("test_mont_64", &vec![GpuScalar(a)], &[]), b);
         }
     }

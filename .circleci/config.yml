@@ -86,7 +86,7 @@ jobs:
       - *restore-cache
       - set-env-path
       - test-with-args:
-          cargo-args: "--features cuda"
+          cargo-args: "--features tests-cuda"
 
   test_opencl:
     executor: default
@@ -95,7 +95,7 @@ jobs:
       - *restore-cache
       - set-env-path
       - test-with-args:
-          cargo-args: "--features opencl"
+          cargo-args: "--features tests-opencl"
 
   rustfmt:
     executor: default
