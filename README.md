@@ -15,7 +15,7 @@
 CUDA/OpenCL code generator for finite-field arithmetic over prime fields and elliptic curve arithmetic constructed with Rust.
 
 Notes:
- - Limbs are 32/64-bit long, by your choice.
+ - Limbs are 32/64-bit long, by your choice (on CUDA only 32-bit limbs are supported).
  - The library assumes that the most significant bit of your prime-field is unset. This allows for cheap reductions.
 
 ## Usage
