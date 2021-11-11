@@ -144,9 +144,9 @@ impl Limb for Limb64 {
     }
 }
 
-fn define_field<L: Limb>(name: &str, limbs: Vec<L>) -> String {
+fn const_field<L: Limb>(name: &str, limbs: Vec<L>) -> String {
     format!(
-        "#define {} ((FIELD){{ {{ {} }} }})",
+        "CONSTANT FIELD {} = {{ {{ {} }} }};",
         name,
         limbs
             .iter()
@@ -169,22 +169,22 @@ where
     let limb_def = format!("#define FIELD_limb {}", L::opencl_type());
     let limbs_def = format!("#define FIELD_LIMBS {}", limbs);
     let limb_bits_def = format!("#define FIELD_LIMB_BITS {}", L::bits());
-    let p_def = define_field("FIELD_P", p);
-    let r2_def = define_field("FIELD_R2", r2);
-    let one_def = define_field("FIELD_ONE", one);
-    let zero_def = define_field("FIELD_ZERO", vec![L::zero(); limbs]);
+    let p_def = const_field("FIELD_P", p);
+    let r2_def = const_field("FIELD_R2", r2);
+    let one_def = const_field("FIELD_ONE", one);
+    let zero_def = const_field("FIELD_ZERO", vec![L::zero(); limbs]);
     let inv_def = format!("#define FIELD_INV {}", inv.value());
     let typedef = "typedef struct { FIELD_limb val[FIELD_LIMBS]; } FIELD;".to_string();
     [
         limb_def,
         limbs_def,
         limb_bits_def,
+        inv_def,
+        typedef,
         one_def,
         p_def,
         r2_def,
         zero_def,
-        inv_def,
-        typedef,
     ]
     .join("\n")
 }
