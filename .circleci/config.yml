@@ -26,19 +26,13 @@ commands:
             echo 'export PATH="$HOME:~/.cargo/bin:/usr/local/cuda-11.2/bin:$PATH"' | tee --append $BASH_ENV
             source $BASH_ENV
 
-  test-with-args:
-    parameters:
-      cargo-args:
-        description: Addtional arguments for the cargo command
-        type: string
-        default: ""
+  install-gpu-deps:
     steps:
-      - run: sudo apt update
-      - run: sudo apt install -y ocl-icd-opencl-dev
       - run:
-          name: Test (<< parameters.cargo-args >>)
-          command: cargo test --workspace --no-default-features  << parameters.cargo-args >>
-          no_output_timeout: 15m
+          name: Install libraries for GPU tests
+          command: |
+            sudo apt update
+            sudo apt install -y ocl-icd-opencl-dev
 
 jobs:
 
@@ -79,23 +73,25 @@ jobs:
             - "~/.cargo"
             - "~/.rustup"
 
-  test_cuda:
+  test:
     executor: default
+    parameters:
+      cargo-args:
+        description: Addtional arguments for the cargo command
+        type: string
+        default: ""
+      no-gpu-deps:
+        description: If true, don't install OpenCL libraries
+        type: boolean
+        default: false
     steps:
       - *restore-workspace
       - *restore-cache
       - set-env-path
-      - test-with-args:
-          cargo-args: "--features tests-cuda"
-
-  test_opencl:
-    executor: default
-    steps:
-      - *restore-workspace
-      - *restore-cache
-      - set-env-path
-      - test-with-args:
-          cargo-args: "--features tests-opencl"
+      - install-gpu-deps
+      - run:
+          name: Test (<< parameters.cargo-args >>)
+          command: cargo test --workspace << parameters.cargo-args >>
 
   rustfmt:
     executor: default
@@ -109,13 +105,39 @@ jobs:
 
   clippy:
     executor: default
+    parameters:
+      cargo-args:
+        description: Addtional arguments for the cargo command
+        type: string
+        default: ""
     steps:
       - *restore-workspace
       - *restore-cache
       - set-env-path
       - run:
-          name: Run cargo clippy
-          command: cargo clippy --all-features --all -- -D warnings
+          name: Run cargo clippy default features
+          command: cargo clippy --workspace --all-targets -- -D warnings
+      - run:
+          name: Run cargo clippy no default features
+          command: cargo clippy --workspace --all-targets --no-default-features -- -D warnings
+      - run:
+          name: Run cargo clippy with cuda feature
+          command: cargo clippy --workspace --all-targets --no-default-features --features cuda,fft,multiexp -- -D warnings
+      - run:
+          name: Run cargo clippy with opencl feature
+          command: cargo clippy --workspace --all-targets --no-default-features --features opencl,fft,multiexp -- -D warnings
+      - run:
+          name: Run cargo clippy with cuda and fft features
+          command: cargo clippy --workspace --all-targets --no-default-features --features cuda,fft -- -D warnings
+      - run:
+          name: Run cargo clippy with cuda and multiexp features
+          command: cargo clippy --workspace --all-targets --no-default-features --features cuda,multiexp -- -D warnings
+      - run:
+          name: Run cargo clippy with opencl and fft features
+          command: cargo clippy --workspace --all-targets --no-default-features --features opencl,fft -- -D warnings
+      - run:
+          name: Run cargo clippy with opencl and multiexp features
+          command: cargo clippy --workspace --all-targets --no-default-features --features opencl,multiexp -- -D warnings
 
   build:
     executor: default
@@ -125,8 +147,7 @@ jobs:
       - set-env-path
       - run:
           name: Run cargo release build
-          command: cargo build --all --release
-
+          command: cargo build --workspace --release
 
 workflows:
   version: 2.1
@@ -140,10 +161,45 @@ workflows:
       - clippy:
           requires:
             - cargo_fetch
-      - test_cuda:
+      - test:
+          name: "Test with default features"
+          no-gpu-deps: true
           requires:
             - cargo_fetch
-      - test_opencl:
+      - test:
+          name: "Test with no default features"
+          cargo-args: "--no-default-features"
+          no-gpu-deps: true
+          requires:
+            - cargo_fetch
+      - test:
+          name: "Test with CUDA only"
+          cargo-args: "--no-default-features --features cuda,fft,multiexp"
+          requires:
+            - cargo_fetch
+      - test:
+          name: "Test with OpenCL only"
+          cargo-args: "--no-default-features --features opencl,fft,multiexp"
+          requires:
+            - cargo_fetch
+      - test:
+          name: "Test with FFT on CUDA"
+          cargo-args: "--no-default-features --features cuda,fft"
+          requires:
+            - cargo_fetch
+      - test:
+          name: "Test with multiexp on CUDA"
+          cargo-args: "--no-default-features --features cuda,multiexp"
+          requires:
+            - cargo_fetch
+      - test:
+          name: "Test with FFT on OpenCL"
+          cargo-args: "--no-default-features --features opencl,fft"
+          requires:
+            - cargo_fetch
+      - test:
+          name: "Test with multiexp on OpenCL"
+          cargo-args: "--no-default-features --features opencl,multiexp"
           requires:
             - cargo_fetch
       - build:

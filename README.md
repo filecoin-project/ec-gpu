@@ -83,20 +83,20 @@ conditions.
 [crate-link-ec-gpu]: https://crates.io/crates/ec-gpu
 [doc-image-ec-gpu]: https://docs.rs/ec-gpu/badge.svg
 [doc-link-ec-gpu]: https://docs.rs/ec-gpu
-[build-image-ec-gpu]: https://circleci.com/gh/filecoin-project/ff-cl-gen.svg?style=svg
-[build-link-ec-gpu]: https://circleci.com/gh/filecoin-project/ff-cl-gen
-[msrv-image-ec-gpu]: https://img.shields.io/badge/rustc-1.51+-blue.svg
-[deps-image-ec-gpu]: https://deps.rs/repo/github/filecoin-projectt/ff-cl-gen/status.svg
-[deps-link-ec-gpu]: https://deps.rs/repo/github/filecoin-project/ff-cl-gen
+[build-image-ec-gpu]: https://circleci.com/gh/filecoin-project/ec-gpu.svg?style=shield
+[build-link-ec-gpu]: https://circleci.com/gh/filecoin-project/ec-gpu
+[msrv-image-ec-gpu]: https://img.shields.io/badge/rustc-1.54+-blue.svg
+[deps-image-ec-gpu]: https://deps.rs/repo/github/filecoin-projectt/ec-gpu/status.svg
+[deps-link-ec-gpu]: https://deps.rs/repo/github/filecoin-project/ec-gpu
 
 
 [crate-image-ec-gpu-gen]: https://img.shields.io/crates/v/ec-gpu-gen.svg
 [crate-link-ec-gpu-gen]: https://crates.io/crates/ec-gpu-gen
 [doc-image-ec-gpu-gen]: https://docs.rs/ec-gpu-gen/badge.svg
 [doc-link-ec-gpu-gen]: https://docs.rs/ec-gpu-gen
-[build-image-ec-gpu-gen]: https://circleci.com/gh/filecoin-project/ff-cl-gen.svg?style=svg
-[build-link-ec-gpu-gen]: https://circleci.com/gh/filecoin-project/ff-cl-gen
-[msrv-image-ec-gpu-gen]: https://img.shields.io/badge/rustc-1.51+-blue.svg
-[deps-image-ec-gpu-gen]: https://deps.rs/repo/github/filecoin-projectt/ff-cl-gen/status.svg
-[deps-link-ec-gpu-gen]: https://deps.rs/repo/github/filecoin-project/ff-cl-gen
+[build-image-ec-gpu-gen]: https://circleci.com/gh/filecoin-project/ec-gpu.svg?style=shield
+[build-link-ec-gpu-gen]: https://circleci.com/gh/filecoin-project/ec-gpu
+[msrv-image-ec-gpu-gen]: https://img.shields.io/badge/rustc-1.54+-blue.svg
+[deps-image-ec-gpu-gen]: https://deps.rs/repo/github/filecoin-projectt/ec-gpu/status.svg
+[deps-link-ec-gpu-gen]: https://deps.rs/repo/github/filecoin-project/ec-gpu
 
