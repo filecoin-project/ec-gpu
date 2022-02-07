@@ -57,9 +57,39 @@ bool FIELD_get_bit(FIELD l, uint i); // Get `i`th bit (From most significant dig
 uint FIELD_get_bits(FIELD l, uint skip, uint window); // Get `window` consecutive bits, (Starting from `skip`th bit from most significant digit)
 ```
 
-## Tests
+## Feature flags
 
-In order to run the tests, you need to enable one (or both) of `tests-cuda` and `tests-opencl`.
+This crate contains implementation for [Fast Fourier transform] and multi-exponentiation, those are enabled be default by the `fft` and `multiexp` features. CPU and GPU implementations are available, you can enable CUDA and OpenCL support with the `cuda` and `opencl` feature flags.
+
+### Environment variables
+
+ - `EC_GPU_CUDA_NVCC_ARGS`
+
+     By default the CUDA kernel is compiled for several architectures, which may take a long time. `EC_GPU_CUDA_NVCC_ARGS` can be used to override those arguments. The input and output file will still be automatically set.
+
+    ```console
+    // Example for compiling the kernel for only the Turing architecture.
+    EC_GPU_CUDA_NVCC_ARGS="--fatbin --gpu-architecture=sm_75 --generate-code=arch=compute_75,code=sm_75"
+    ```
+
+ - `EC_GPU_FRAMEWORK`
+
+    When the library is built with both CUDA and OpenCL support, you can choose which one to use at run time. The default is `cuda`, when you set nothing or any other (invalid) value. The other possible value is `opencl`.
+
+    ```console
+    // Example for setting it to OpenCL.
+    EC_GPU_FRAMEWORK=opencl
+    ```
+
+ - `EC_GPU_NUM_THREADS`
+
+   Restricts the number of threads used in the library. The default is set to the number of logical cores reported on the machine.
+
+    ```console
+    // Example for setting the maximum number of threads to 6.
+    EC_GPU_NUM_THREADS=6
+    ```
+
 
 ## License
 
@@ -100,3 +130,4 @@ conditions.
 [deps-image-ec-gpu-gen]: https://deps.rs/repo/github/filecoin-projectt/ec-gpu/status.svg
 [deps-link-ec-gpu-gen]: https://deps.rs/repo/github/filecoin-project/ec-gpu
 
+[Fast Fourier transform]: https://en.wikipedia.org/wiki/Fast_Fourier_transform
