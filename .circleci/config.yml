@@ -89,6 +89,7 @@ jobs:
       - *restore-cache
       - set-env-path
       - install-gpu-deps
+      - run: nvidia-smi --list-gpus
       - run:
           name: Test (<< parameters.cargo-args >>)
           command: cargo test --workspace << parameters.cargo-args >>
