@@ -6,12 +6,12 @@ use ec_gpu::GpuEngine;
 use ff::Field;
 use log::{error, info};
 use pairing::Engine;
-use rust_gpu_tools::{program_closures, Device, LocalBuffer, Program, Vendor};
+use rust_gpu_tools::{program_closures, Device, LocalBuffer, Program};
 
 use crate::threadpool::THREAD_POOL;
 use crate::{
     error::{EcError, EcResult},
-    program, Limb32, Limb64,
+    program,
 };
 
 const LOG2_MAX_ELEMENTS: usize = 32; // At most 2^32 elements is supported.
@@ -40,11 +40,7 @@ impl<'a, E: Engine + GpuEngine> SingleFftKernel<'a, E> {
         device: &Device,
         maybe_abort: Option<&'a (dyn Fn() -> bool + Send + Sync)>,
     ) -> EcResult<Self> {
-        let source = match device.vendor() {
-            Vendor::Nvidia => crate::gen_source::<E, Limb32>(),
-            _ => crate::gen_source::<E, Limb64>(),
-        };
-        let program = program::program::<E>(device, &source)?;
+        let program = program::program(device)?;
 
         Ok(SingleFftKernel {
             program,

@@ -7,14 +7,13 @@ use ff::PrimeField;
 use group::{prime::PrimeCurveAffine, Group};
 use log::{error, info};
 use pairing::Engine;
-use rust_gpu_tools::{program_closures, Device, Program, Vendor};
+use rust_gpu_tools::{program_closures, Device, Program};
 use yastl::Scope;
 
 use crate::{
     error::{EcError, EcResult},
     program,
     threadpool::Worker,
-    Limb32, Limb64,
 };
 
 /// On the GPU, the exponents are split into windows, this is the maximum number of such windows.
@@ -113,11 +112,7 @@ where
         let work_units = work_units(compute_units, compute_capability);
         let chunk_size = calc_chunk_size::<E>(mem, work_units);
 
-        let source = match device.vendor() {
-            Vendor::Nvidia => crate::gen_source::<E, Limb32>(),
-            _ => crate::gen_source::<E, Limb64>(),
-        };
-        let program = program::program::<E>(device, &source)?;
+        let program = program::program(device)?;
 
         Ok(SingleMultiexpKernel {
             program,
