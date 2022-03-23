@@ -121,8 +121,8 @@ where
         let n = std::cmp::min(max_n, best_n);
 
         let source = match device.vendor() {
-            Vendor::Nvidia => crate::gen_source::<E, Limb64>(),
-            _ => crate::gen_source::<E, Limb32>(),
+            Vendor::Nvidia => crate::gen_source::<E, Limb32>(),
+            _ => crate::gen_source::<E, Limb64>(),
         };
         let program = program::program::<E>(device, &source)?;
 
