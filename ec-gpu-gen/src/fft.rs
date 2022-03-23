@@ -41,8 +41,8 @@ impl<'a, E: Engine + GpuEngine> SingleFftKernel<'a, E> {
         maybe_abort: Option<&'a (dyn Fn() -> bool + Send + Sync)>,
     ) -> EcResult<Self> {
         let source = match device.vendor() {
-            Vendor::Nvidia => crate::gen_source::<E, Limb64>(),
-            _ => crate::gen_source::<E, Limb32>(),
+            Vendor::Nvidia => crate::gen_source::<E, Limb32>(),
+            _ => crate::gen_source::<E, Limb64>(),
         };
         let program = program::program::<E>(device, &source)?;
 
