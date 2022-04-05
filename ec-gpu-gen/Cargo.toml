@@ -37,7 +37,7 @@ blstrs = "0.4.0"
 ec-gpu = "0.1.0"
 execute = "0.2.9"
 hex = "0.4"
-sha2 = "0.9"
+sha2 = "0.10"
 
 [features]
 default = ["cuda", "fft", "multiexp", "opencl"]
