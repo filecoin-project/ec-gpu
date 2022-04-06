@@ -1,16 +1,7 @@
-DEVICE uint bitreverse(uint n, uint bits) {
-  uint r = 0;
-  for(int i = 0; i < bits; i++) {
-    r = (r << 1) | (n & 1);
-    n >>= 1;
-  }
-  return r;
-}
-
 /*
  * FFT algorithm is inspired from: http://www.bealto.com/gpu-fft_group-1.html
  */
-KERNEL void radix_fft(GLOBAL FIELD* x, // Source buffer
+KERNEL void FIELD_radix_fft(GLOBAL FIELD* x, // Source buffer
                       GLOBAL FIELD* y, // Destination buffer
                       GLOBAL FIELD* pq, // Precalculated twiddle factors
                       GLOBAL FIELD* omegas, // [omega, omega^2, omega^4, ...]
@@ -21,11 +12,12 @@ KERNEL void radix_fft(GLOBAL FIELD* x, // Source buffer
                       uint max_deg) // Maximum degree supported, according to `pq` and `omegas`
 {
 // CUDA doesn't support local buffers ("shared memory" in CUDA lingo) as function arguments,
-// ignore that argument and declare the external memory here instead.
+// ignore that argument and use the globally defined extern memory instead.
 #ifdef CUDA
-  extern LOCAL FIELD u[];
+  // There can only be a single dynamic shared memory item, hence cast it to the type we need.
+  FIELD* u = (FIELD*)cuda_shared;
 #else
-   LOCAL FIELD* u = u_arg;
+  LOCAL FIELD* u = u_arg;
 #endif
 
   uint lid = GET_LOCAL_ID();
@@ -76,7 +68,7 @@ KERNEL void radix_fft(GLOBAL FIELD* x, // Source buffer
 }
 
 /// Multiplies all of the elements by `field`
-KERNEL void mul_by_field(GLOBAL FIELD* elements,
+KERNEL void FIELD_mul_by_field(GLOBAL FIELD* elements,
                         uint n,
                         FIELD field) {
   const uint gid = GET_GLOBAL_ID();
