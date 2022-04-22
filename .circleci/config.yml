@@ -149,6 +149,21 @@ jobs:
       - run:
           name: Run cargo release build
           command: cargo build --workspace --release
+  rustdoc:
+    executor: default
+    environment:
+      # Making sure that the documentation can be built without having the NVIDIA toolkit
+      # installed.
+      DOCS_RS: true
+    steps:
+      - *restore-workspace
+      - *restore-cache
+      - run: echo 'export PATH="$HOME:~/.cargo/bin:$PATH"' >> $BASH_ENV && source $BASH_ENV
+      - run:
+          name: Run rustdoc
+          command: |
+            cargo rustdoc --package ec-gpu --all-features -- -D warnings
+            cargo rustdoc --package ec-gpu-gen --all-features -- -D warnings
 
 workflows:
   version: 2.1
@@ -204,5 +219,8 @@ workflows:
           requires:
             - cargo_fetch
       - build:
+          requires:
+            - cargo_fetch
+      - rustdoc:
           requires:
             - cargo_fetch
