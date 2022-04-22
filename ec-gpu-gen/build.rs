@@ -18,6 +18,13 @@ fn main() {
     #[path = "src/source.rs"]
     mod source;
 
+    // This is a hack for the case when the documentation is built on docs.rs. For the
+    // documentation  we don't need a properly compiled kernel, but just some arbitrary bytes.
+    if env::var("DOCS_RS").is_ok() {
+        println!("cargo:rustc-env=CUDA_KERNEL_FATBIN=../build.rs");
+        return;
+    }
+
     let kernel_source = source::gen_source::<Bls12, source::Limb32>();
 
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR was not set.");
@@ -69,7 +76,7 @@ fn main() {
             .arg(&fatbin_path)
             .arg(&source_path)
             .status()
-            .expect("Cannot run nvcc.");
+            .expect("Cannot run nvcc. Install the NVIDIA toolkit or disable the `cuda` feature.");
 
         if !status.success() {
             panic!(
