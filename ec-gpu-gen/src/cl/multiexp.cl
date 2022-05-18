@@ -10,8 +10,8 @@
 
 KERNEL void POINT_multiexp(
     GLOBAL POINT_affine *bases,
-    GLOBAL POINT_projective *buckets,
-    GLOBAL POINT_projective *results,
+    GLOBAL POINT_jacobian *buckets,
+    GLOBAL POINT_jacobian *results,
     GLOBAL EXPONENT *exps,
     uint n,
     uint num_groups,
@@ -28,7 +28,7 @@ KERNEL void POINT_multiexp(
   // Each thread has its own set of buckets in global memory.
   buckets += bucket_len * gid;
 
-  const POINT_projective local_zero = POINT_ZERO;
+  const POINT_jacobian local_zero = POINT_ZERO;
   for(uint i = 0; i < bucket_len; i++) buckets[i] = local_zero;
 
   const uint len = (uint)ceil(n / (float)num_groups); // Num of elements in each group
@@ -40,7 +40,7 @@ KERNEL void POINT_multiexp(
   const uint bits = (gid % num_windows) * window_size;
   const ushort w = min((ushort)window_size, (ushort)(EXPONENT_BITS - bits));
 
-  POINT_projective res = POINT_ZERO;
+  POINT_jacobian res = POINT_ZERO;
   for(uint i = nstart; i < nend; i++) {
     uint ind = EXPONENT_get_bits(exps[i], bits, w);
 
@@ -60,7 +60,7 @@ KERNEL void POINT_multiexp(
   // e.g. 3a + 2b + 1c = a +
   //                    (a) + b +
   //                    ((a) + b) + c
-  POINT_projective acc = POINT_ZERO;
+  POINT_jacobian acc = POINT_ZERO;
   for(int j = bucket_len - 1; j >= 0; j--) {
     acc = POINT_add(acc, buckets[j]);
     res = POINT_add(res, acc);

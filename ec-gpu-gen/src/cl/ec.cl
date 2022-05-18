@@ -1,6 +1,6 @@
 // Elliptic curve operations (Short Weierstrass Jacobian form)
 
-#define POINT_ZERO ((POINT_projective){FIELD_ZERO, FIELD_ONE, FIELD_ZERO})
+#define POINT_ZERO ((POINT_jacobian){FIELD_ZERO, FIELD_ONE, FIELD_ZERO})
 
 typedef struct {
   FIELD x;
@@ -11,10 +11,10 @@ typedef struct {
   FIELD x;
   FIELD y;
   FIELD z;
-} POINT_projective;
+} POINT_jacobian;
 
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
-DEVICE POINT_projective POINT_double(POINT_projective inp) {
+DEVICE POINT_jacobian POINT_double(POINT_jacobian inp) {
   const FIELD local_zero = FIELD_ZERO;
   if(FIELD_eq(inp.z, local_zero)) {
       return inp;
@@ -42,7 +42,7 @@ DEVICE POINT_projective POINT_double(POINT_projective inp) {
 }
 
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
-DEVICE POINT_projective POINT_add_mixed(POINT_projective a, POINT_affine b) {
+DEVICE POINT_jacobian POINT_add_mixed(POINT_jacobian a, POINT_affine b) {
   const FIELD local_zero = FIELD_ZERO;
   if(FIELD_eq(a.z, local_zero)) {
     const FIELD local_one = FIELD_ONE;
@@ -67,7 +67,7 @@ DEVICE POINT_projective POINT_add_mixed(POINT_projective a, POINT_affine b) {
   FIELD r = FIELD_sub(s2, a.y); r = FIELD_double(r); // r = 2*(S2-Y1)
   const FIELD v = FIELD_mul(a.x, i);
 
-  POINT_projective ret;
+  POINT_jacobian ret;
 
   // X3 = r^2 - J - 2*V
   ret.x = FIELD_sub(FIELD_sub(FIELD_sqr(r), j), FIELD_double(v));
@@ -82,7 +82,7 @@ DEVICE POINT_projective POINT_add_mixed(POINT_projective a, POINT_affine b) {
 }
 
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-add-2007-bl
-DEVICE POINT_projective POINT_add(POINT_projective a, POINT_projective b) {
+DEVICE POINT_jacobian POINT_add(POINT_jacobian a, POINT_jacobian b) {
 
   const FIELD local_zero = FIELD_ZERO;
   if(FIELD_eq(a.z, local_zero)) return b;
