@@ -45,7 +45,7 @@ fn select_framework(default_framework: Framework) -> EcResult<Framework> {
     }
 }
 
-/// Returns the program for the preferred [`rust_gpu_tools::device::Framework`].
+/// Returns the program for the preferred [`rust_gpu_tools::Framework`].
 ///
 /// If the device supports CUDA, then CUDA is used, else OpenCL. You can force a selection with
 /// the environment variable `EC_GPU_FRAMEWORK`, which can be set either to `cuda` or `opencl`.
@@ -57,7 +57,7 @@ where
     program_use_framework::<E>(device, source, &framework)
 }
 
-/// Returns the program for the specified [`rust_gpu_tools::device::Framework`].
+/// Returns the program for the specified [`rust_gpu_tools::Framework`].
 pub fn program_use_framework<E>(
     device: &Device,
     #[allow(unused_variables)] source: &str,
