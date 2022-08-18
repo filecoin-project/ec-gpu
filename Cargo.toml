@@ -3,3 +3,6 @@ members = [
   "ec-gpu",
   "ec-gpu-gen"
 ]
+
+[patch.crates-io]
+blstrs = { git = "https://github.com/lurk-lang/blstrs", branch = "sb/wasm-lurk-compat" }

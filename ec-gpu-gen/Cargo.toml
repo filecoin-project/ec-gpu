@@ -24,6 +24,9 @@ temp-env = "0.2.0"
 thiserror = "1.0.30"
 yastl = "0.1.2"
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2.5", features = ["js"] }
+
 [dev-dependencies]
 blstrs = { version = "0.5.0", features = ["gpu"] }
 rand = "0.8"
@@ -42,6 +45,7 @@ sha2 = "0.10"
 [features]
 default = ["cuda", "fft", "multiexp", "opencl"]
 cuda = ["rust-gpu-tools/cuda"]
+# Doesn't work on WASM
 opencl = ["rust-gpu-tools/opencl"]
 fft = []
 multiexp = []
