@@ -1,18 +1,15 @@
-use std::any::TypeId;
 use std::ops::AddAssign;
 use std::sync::{Arc, RwLock};
 
-use ec_gpu::GpuEngine;
+use ec_gpu::GpuName;
 use ff::PrimeField;
 use group::{prime::PrimeCurveAffine, Group};
 use log::{error, info};
-use pairing::Engine;
 use rust_gpu_tools::{program_closures, Device, Program};
 use yastl::Scope;
 
 use crate::{
     error::{EcError, EcResult},
-    program,
     threadpool::Worker,
 };
 
@@ -46,9 +43,9 @@ const fn work_units(compute_units: u32, compute_capabilities: Option<(u32, u32)>
 }
 
 /// Multiexp kernel for a single GPU.
-pub struct SingleMultiexpKernel<'a, E>
+pub struct SingleMultiexpKernel<'a, G>
 where
-    E: Engine + GpuEngine,
+    G: PrimeCurveAffine,
 {
     program: Program,
     /// The number of exponentiations the GPU can handle in a single execution of the kernel.
@@ -61,17 +58,18 @@ where
     /// [`EcError::Aborted`].
     maybe_abort: Option<&'a (dyn Fn() -> bool + Send + Sync)>,
 
-    _phantom: std::marker::PhantomData<E::Fr>,
+    _phantom: std::marker::PhantomData<G::Scalar>,
 }
 
 /// Calculates the maximum number of terms that can be put onto the GPU memory.
-fn calc_chunk_size<E>(mem: u64, work_units: usize) -> usize
+fn calc_chunk_size<G>(mem: u64, work_units: usize) -> usize
 where
-    E: Engine,
+    G: PrimeCurveAffine,
+    G::Scalar: PrimeField,
 {
-    let aff_size = std::mem::size_of::<E::G1Affine>() + std::mem::size_of::<E::G2Affine>();
-    let exp_size = exp_size::<E>();
-    let proj_size = std::mem::size_of::<E::G1>() + std::mem::size_of::<E::G2>();
+    let aff_size = std::mem::size_of::<G>();
+    let exp_size = exp_size::<G::Scalar>();
+    let proj_size = std::mem::size_of::<G::Curve>();
 
     // Leave `MEMORY_PADDING` percent of the memory free.
     let max_memory = ((mem as f64) * (1f64 - MEMORY_PADDING)) as usize;
@@ -90,19 +88,20 @@ where
 /// The size of the exponent in bytes.
 ///
 /// It's the actual bytes size it needs in memory, not it's theoratical bit size.
-fn exp_size<E: Engine>() -> usize {
-    std::mem::size_of::<<E::Fr as ff::PrimeField>::Repr>()
+fn exp_size<F: PrimeField>() -> usize {
+    std::mem::size_of::<F::Repr>()
 }
 
-impl<'a, E> SingleMultiexpKernel<'a, E>
+impl<'a, G> SingleMultiexpKernel<'a, G>
 where
-    E: Engine + GpuEngine,
+    G: PrimeCurveAffine + GpuName,
 {
-    /// Create a new kernel for a device.
+    /// Create a new Multiexp kernel instance for a device.
     ///
     /// The `maybe_abort` function is called when it is possible to abort the computation, without
     /// leaving the GPU in a weird state. If that function returns `true`, execution is aborted.
     pub fn create(
+        program: Program,
         device: &Device,
         maybe_abort: Option<&'a (dyn Fn() -> bool + Send + Sync)>,
     ) -> EcResult<Self> {
@@ -110,9 +109,7 @@ where
         let compute_units = device.compute_units();
         let compute_capability = device.compute_capability();
         let work_units = work_units(compute_units, compute_capability);
-        let chunk_size = calc_chunk_size::<E>(mem, work_units);
-
-        let program = program::program(device)?;
+        let chunk_size = calc_chunk_size::<G>(mem, work_units);
 
         Ok(SingleMultiexpKernel {
             program,
@@ -128,15 +125,13 @@ where
     /// The number of `bases` and `exponents` are determined by [`SingleMultiexpKernel`]`::n`, this
     /// means that it is guaranteed that this amount of calculations fit on the GPU this kernel is
     /// running on.
-    pub fn multiexp<G>(
+    pub fn multiexp(
         &self,
         bases: &[G],
-        exps: &[<G::Scalar as PrimeField>::Repr],
-        n: usize,
-    ) -> EcResult<G::Curve>
-    where
-        G: PrimeCurveAffine,
-    {
+        exponents: &[<G::Scalar as PrimeField>::Repr],
+    ) -> EcResult<G::Curve> {
+        assert_eq!(bases.len(), exponents.len());
+
         if let Some(maybe_abort) = &self.maybe_abort {
             if maybe_abort() {
                 return Err(EcError::Aborted);
@@ -154,7 +149,7 @@ where
 
         let closures = program_closures!(|program, _arg| -> EcResult<Vec<G::Curve>> {
             let base_buffer = program.create_buffer_from_slice(bases)?;
-            let exp_buffer = program.create_buffer_from_slice(exps)?;
+            let exp_buffer = program.create_buffer_from_slice(exponents)?;
 
             // It is safe as the GPU will initialize that buffer
             let bucket_buffer =
@@ -166,24 +161,15 @@ where
             // `LOCAL_WORK_SIZE` sized thread groups.
             let global_work_size = div_ceil(num_windows * num_groups, LOCAL_WORK_SIZE);
 
-            let kernel = program.create_kernel(
-                if TypeId::of::<G>() == TypeId::of::<E::G1Affine>() {
-                    "G1_bellman_multiexp"
-                } else if TypeId::of::<G>() == TypeId::of::<E::G2Affine>() {
-                    "G2_bellman_multiexp"
-                } else {
-                    return Err(EcError::Simple("Only E::G1 and E::G2 are supported!"));
-                },
-                global_work_size,
-                LOCAL_WORK_SIZE,
-            )?;
+            let kernel_name = format!("{}_multiexp", G::name());
+            let kernel = program.create_kernel(&kernel_name, global_work_size, LOCAL_WORK_SIZE)?;
 
             kernel
                 .arg(&base_buffer)
                 .arg(&bucket_buffer)
                 .arg(&result_buffer)
                 .arg(&exp_buffer)
-                .arg(&(n as u32))
+                .arg(&(bases.len() as u32))
                 .arg(&(num_groups as u32))
                 .arg(&(num_windows as u32))
                 .arg(&(window_size as u32))
@@ -201,7 +187,7 @@ where
         // of those `NUM_GROUPS` * `NUM_WINDOWS` threads.
         let mut acc = G::Curve::identity();
         let mut bits = 0;
-        let exp_bits = exp_size::<E>() * 8;
+        let exp_bits = exp_size::<G::Scalar>() * 8;
         for i in 0..num_windows {
             let w = std::cmp::min(window_size, exp_bits - bits);
             for _ in 0..w {
@@ -231,20 +217,20 @@ where
 }
 
 /// A struct that containts several multiexp kernels for different devices.
-pub struct MultiexpKernel<'a, E>
+pub struct MultiexpKernel<'a, G>
 where
-    E: Engine + GpuEngine,
+    G: PrimeCurveAffine,
 {
-    kernels: Vec<SingleMultiexpKernel<'a, E>>,
+    kernels: Vec<SingleMultiexpKernel<'a, G>>,
 }
 
-impl<'a, E> MultiexpKernel<'a, E>
+impl<'a, G> MultiexpKernel<'a, G>
 where
-    E: Engine + GpuEngine,
+    G: PrimeCurveAffine + GpuName,
 {
     /// Create new kernels, one for each given device.
-    pub fn create(devices: &[&Device]) -> EcResult<Self> {
-        Self::create_optional_abort(devices, None)
+    pub fn create(programs: Vec<Program>, devices: &[&Device]) -> EcResult<Self> {
+        Self::create_optional_abort(programs, devices, None)
     }
 
     /// Create new kernels, one for each given device, with early abort hook.
@@ -252,25 +238,28 @@ where
     /// The `maybe_abort` function is called when it is possible to abort the computation, without
     /// leaving the GPU in a weird state. If that function returns `true`, execution is aborted.
     pub fn create_with_abort(
+        programs: Vec<Program>,
         devices: &[&Device],
         maybe_abort: &'a (dyn Fn() -> bool + Send + Sync),
     ) -> EcResult<Self> {
-        Self::create_optional_abort(devices, Some(maybe_abort))
+        Self::create_optional_abort(programs, devices, Some(maybe_abort))
     }
 
     fn create_optional_abort(
+        programs: Vec<Program>,
         devices: &[&Device],
         maybe_abort: Option<&'a (dyn Fn() -> bool + Send + Sync)>,
     ) -> EcResult<Self> {
-        let kernels: Vec<_> = devices
-            .iter()
-            .filter_map(|device| {
-                let kernel = SingleMultiexpKernel::<E>::create(device, maybe_abort);
+        let kernels: Vec<_> = programs
+            .into_iter()
+            .zip(devices.iter())
+            .filter_map(|(program, device)| {
+                let device_name = program.device_name().to_string();
+                let kernel = SingleMultiexpKernel::create(program, device, maybe_abort);
                 if let Err(ref e) = kernel {
                     error!(
                         "Cannot initialize kernel for device '{}'! Error: {}",
-                        device.name(),
-                        e
+                        device_name, e
                     );
                 }
                 kernel.ok()
@@ -289,25 +278,24 @@ where
                 k.n
             );
         }
-        Ok(MultiexpKernel::<E> { kernels })
+        Ok(MultiexpKernel { kernels })
     }
 
     /// Calculate multiexp on all available GPUs.
     ///
     /// It needs to run within a [`yastl::Scope`]. This method usually isn't called directly, use
     /// [`MultiexpKernel::multiexp`] instead.
-    pub fn parallel_multiexp<'s, G>(
+    pub fn parallel_multiexp<'s>(
         &'s mut self,
         scope: &Scope<'s>,
         bases: &'s [G],
         exps: &'s [<G::Scalar as PrimeField>::Repr],
         results: &'s mut [G::Curve],
         error: Arc<RwLock<EcResult<()>>>,
-    ) where
-        G: PrimeCurveAffine<Scalar = E::Fr>,
-    {
+    ) {
         let num_devices = self.kernels.len();
         let num_exps = exps.len();
+        // The maximum number of exponentiations per device.
         let chunk_size = ((num_exps as f64) / (num_devices as f64)).ceil() as usize;
 
         for (((bases, exps), kern), result) in bases
@@ -326,7 +314,7 @@ where
                     if error.read().unwrap().is_err() {
                         break;
                     }
-                    match kern.multiexp(bases, exps, bases.len()) {
+                    match kern.multiexp(bases, exps) {
                         Ok(result) => acc.add_assign(&result),
                         Err(e) => {
                             *error.write().unwrap() = Err(e);
@@ -344,16 +332,13 @@ where
     /// Calculate multiexp.
     ///
     /// This is the main entry point.
-    pub fn multiexp<G>(
+    pub fn multiexp(
         &mut self,
         pool: &Worker,
         bases_arc: Arc<Vec<G>>,
         exps: Arc<Vec<<G::Scalar as PrimeField>::Repr>>,
         skip: usize,
-    ) -> EcResult<G::Curve>
-    where
-        G: PrimeCurveAffine<Scalar = E::Fr>,
-    {
+    ) -> EcResult<G::Curve> {
         // Bases are skipped by `self.1` elements, when converted from (Arc<Vec<G>>, usize) to Source
         // https://github.com/zkcrypto/bellman/blob/10c5010fd9c2ca69442dc9775ea271e286e776d8/src/multiexp.rs#L38
         let bases = &bases_arc[skip..(skip + exps.len())];
@@ -383,89 +368,5 @@ where
     /// Returns the number of kernels (one per device).
     pub fn num_kernels(&self) -> usize {
         self.kernels.len()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use std::time::Instant;
-
-    use blstrs::Bls12;
-    use ff::Field;
-    use group::Curve;
-
-    use crate::multiexp_cpu::{multiexp_cpu, FullDensity, QueryDensity, SourceBuilder};
-
-    fn multiexp_gpu<Q, D, G, E, S>(
-        pool: &Worker,
-        bases: S,
-        density_map: D,
-        exponents: Arc<Vec<<G::Scalar as PrimeField>::Repr>>,
-        kern: &mut MultiexpKernel<E>,
-    ) -> Result<G::Curve, EcError>
-    where
-        for<'a> &'a Q: QueryDensity,
-        D: Send + Sync + 'static + Clone + AsRef<Q>,
-        G: PrimeCurveAffine,
-        E: GpuEngine,
-        E: Engine<Fr = G::Scalar>,
-        S: SourceBuilder<G>,
-    {
-        let exps = density_map.as_ref().generate_exps::<E>(exponents);
-        let (bss, skip) = bases.get();
-        kern.multiexp(pool, bss, exps, skip).map_err(Into::into)
-    }
-
-    #[test]
-    fn gpu_multiexp_consistency() {
-        const MAX_LOG_D: usize = 16;
-        const START_LOG_D: usize = 10;
-        let devices = Device::all();
-        let mut kern =
-            MultiexpKernel::<Bls12>::create(&devices).expect("Cannot initialize kernel!");
-        let pool = Worker::new();
-
-        let mut rng = rand::thread_rng();
-
-        let mut bases = (0..(1 << 10))
-            .map(|_| <Bls12 as Engine>::G1::random(&mut rng).to_affine())
-            .collect::<Vec<_>>();
-
-        for log_d in START_LOG_D..=MAX_LOG_D {
-            let g = Arc::new(bases.clone());
-
-            let samples = 1 << log_d;
-            println!("Testing Multiexp for {} elements...", samples);
-
-            let v = Arc::new(
-                (0..samples)
-                    .map(|_| <Bls12 as Engine>::Fr::random(&mut rng).to_repr())
-                    .collect::<Vec<_>>(),
-            );
-
-            let mut now = Instant::now();
-            let gpu =
-                multiexp_gpu(&pool, (g.clone(), 0), FullDensity, v.clone(), &mut kern).unwrap();
-            let gpu_dur = now.elapsed().as_secs() * 1000 + now.elapsed().subsec_millis() as u64;
-            println!("GPU took {}ms.", gpu_dur);
-
-            now = Instant::now();
-            let cpu =
-                multiexp_cpu::<_, _, _, Bls12, _>(&pool, (g.clone(), 0), FullDensity, v.clone())
-                    .wait()
-                    .unwrap();
-            let cpu_dur = now.elapsed().as_secs() * 1000 + now.elapsed().subsec_millis() as u64;
-            println!("CPU took {}ms.", cpu_dur);
-
-            println!("Speedup: x{}", cpu_dur as f32 / gpu_dur as f32);
-
-            assert_eq!(cpu, gpu);
-
-            println!("============================");
-
-            bases = [bases.clone(), bases.clone()].concat();
-        }
     }
 }

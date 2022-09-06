@@ -8,7 +8,7 @@
  * threads running in parallel for calculating a multiexp instance.
  */
 
-KERNEL void POINT_bellman_multiexp(
+KERNEL void POINT_multiexp(
     GLOBAL POINT_affine *bases,
     GLOBAL POINT_projective *buckets,
     GLOBAL POINT_projective *results,

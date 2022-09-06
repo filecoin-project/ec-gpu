@@ -8,7 +8,6 @@ use std::sync::Arc;
 use bitvec::prelude::{BitVec, Lsb0};
 use ff::{Field, PrimeField};
 use group::{prime::PrimeCurveAffine, Group};
-use pairing::Engine;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
 use crate::error::EcError;
@@ -88,10 +87,7 @@ pub trait QueryDensity: Sized {
 
     fn iter(self) -> Self::Iter;
     fn get_query_size(self) -> Option<usize>;
-    fn generate_exps<E: Engine>(
-        self,
-        exponents: Arc<Vec<<<E as Engine>::Fr as PrimeField>::Repr>>,
-    ) -> Arc<Vec<<<E as Engine>::Fr as PrimeField>::Repr>>;
+    fn generate_exps<F: PrimeField>(self, exponents: Arc<Vec<F::Repr>>) -> Arc<Vec<F::Repr>>;
 }
 
 #[derive(Clone)]
@@ -114,10 +110,7 @@ impl<'a> QueryDensity for &'a FullDensity {
         None
     }
 
-    fn generate_exps<E: Engine>(
-        self,
-        exponents: Arc<Vec<<<E as Engine>::Fr as PrimeField>::Repr>>,
-    ) -> Arc<Vec<<<E as Engine>::Fr as PrimeField>::Repr>> {
+    fn generate_exps<F: PrimeField>(self, exponents: Arc<Vec<F::Repr>>) -> Arc<Vec<F::Repr>> {
         exponents
     }
 }
@@ -139,10 +132,7 @@ impl<'a> QueryDensity for &'a DensityTracker {
         Some(self.bv.len())
     }
 
-    fn generate_exps<E: Engine>(
-        self,
-        exponents: Arc<Vec<<<E as Engine>::Fr as PrimeField>::Repr>>,
-    ) -> Arc<Vec<<<E as Engine>::Fr as PrimeField>::Repr>> {
+    fn generate_exps<F: PrimeField>(self, exponents: Arc<Vec<F::Repr>>) -> Arc<Vec<F::Repr>> {
         let exps: Vec<_> = exponents
             .iter()
             .zip(self.bv.iter())
@@ -340,7 +330,7 @@ where
 
 /// Perform multi-exponentiation. The caller is responsible for ensuring the
 /// query size is the same as the number of exponents.
-pub fn multiexp_cpu<'b, Q, D, G, E, S>(
+pub fn multiexp_cpu<'b, Q, D, G, S>(
     pool: &Worker,
     bases: S,
     density_map: D,
@@ -350,7 +340,6 @@ where
     for<'a> &'a Q: QueryDensity,
     D: Send + Sync + 'static + Clone + AsRef<Q>,
     G: PrimeCurveAffine,
-    E: Engine<Fr = G::Scalar>,
     S: SourceBuilder<G>,
 {
     let c = if exponents.len() < 32 {
@@ -374,6 +363,7 @@ mod tests {
 
     use blstrs::Bls12;
     use group::Curve;
+    use pairing::Engine;
     use rand::Rng;
     use rand_core::SeedableRng;
     use rand_xorshift::XorShiftRng;
@@ -415,9 +405,7 @@ mod tests {
         let pool = Worker::new();
 
         let v = Arc::new(v.into_iter().map(|fr| fr.to_repr()).collect());
-        let fast = multiexp_cpu::<_, _, _, Bls12, _>(&pool, (g, 0), FullDensity, v)
-            .wait()
-            .unwrap();
+        let fast = multiexp_cpu(&pool, (g, 0), FullDensity, v).wait().unwrap();
 
         println!("Fast: {}", now.elapsed().as_millis());
 
@@ -480,7 +468,7 @@ mod tests {
         let max_density = max_bits;
 
         // Create an empty DensityTracker.
-        let empty = || DensityTracker::new();
+        let empty = DensityTracker::new;
 
         // Create a random DensityTracker with first bit unset.
         let unset = |rng: &mut XorShiftRng| {
@@ -506,8 +494,8 @@ mod tests {
         };
 
         // Create a random DensityTracker with first bit set.
-        let set = |mut rng: &mut XorShiftRng| {
-            let mut dt = unset(&mut rng);
+        let set = |rng: &mut XorShiftRng| {
+            let mut dt = unset(rng);
             dt.inc(0);
             dt
         };

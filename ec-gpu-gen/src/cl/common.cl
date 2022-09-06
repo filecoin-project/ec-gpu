@@ -104,7 +104,22 @@ DEVICE uint add_with_carry_32(uint a, uint *b) {
   #endif
 }
 
+// Reverse the given bits. It's used by the FFT kernel.
+DEVICE uint bitreverse(uint n, uint bits) {
+  uint r = 0;
+  for(int i = 0; i < bits; i++) {
+    r = (r << 1) | (n & 1);
+    n >>= 1;
+  }
+  return r;
+}
+
 #ifdef CUDA
+// CUDA doesn't support local buffers ("dynamic shared memory" in CUDA lingo) as function
+// arguments, but only a single globally defined extern value. Use `uchar` so that it is always
+// allocated by the number of bytes.
+extern LOCAL uchar cuda_shared[];
+
 typedef uint uint32_t;
 typedef int  int32_t;
 typedef uint limb;

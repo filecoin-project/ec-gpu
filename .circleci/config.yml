@@ -80,10 +80,8 @@ jobs:
         description: Addtional arguments for the cargo command
         type: string
         default: ""
-      no-gpu-deps:
-        description: If true, don't install OpenCL libraries
-        type: boolean
-        default: false
+    environment:
+      RUST_LOG: debug
     steps:
       - *restore-workspace
       - *restore-cache
@@ -93,7 +91,7 @@ jobs:
       - run:
           name: Test (<< parameters.cargo-args >>)
           # GPU tests are best run sequentially so that they don't interfere with each other.
-          command: cargo test --workspace << parameters.cargo-args >> -- --test-threads=1
+          command: cargo test --workspace << parameters.cargo-args >> -- --nocapture --test-threads 1
 
   rustfmt:
     executor: default
@@ -116,30 +114,19 @@ jobs:
       - *restore-workspace
       - *restore-cache
       - set-env-path
+      - install-gpu-deps
       - run:
           name: Run cargo clippy default features
           command: cargo clippy --workspace --all-targets -- -D warnings
       - run:
-          name: Run cargo clippy no default features
-          command: cargo clippy --workspace --all-targets --no-default-features -- -D warnings
+          name: Run cargo clippy with cuda and opencl features
+          command: cargo clippy --workspace --all-targets --features cuda,opencl -- -D warnings
       - run:
           name: Run cargo clippy with cuda feature
-          command: cargo clippy --workspace --all-targets --no-default-features --features cuda,fft,multiexp -- -D warnings
+          command: cargo clippy --workspace --all-targets --no-default-features --features cuda -- -D warnings
       - run:
           name: Run cargo clippy with opencl feature
-          command: cargo clippy --workspace --all-targets --no-default-features --features opencl,fft,multiexp -- -D warnings
-      - run:
-          name: Run cargo clippy with cuda and fft features
-          command: cargo clippy --workspace --all-targets --no-default-features --features cuda,fft -- -D warnings
-      - run:
-          name: Run cargo clippy with cuda and multiexp features
-          command: cargo clippy --workspace --all-targets --no-default-features --features cuda,multiexp -- -D warnings
-      - run:
-          name: Run cargo clippy with opencl and fft features
-          command: cargo clippy --workspace --all-targets --no-default-features --features opencl,fft -- -D warnings
-      - run:
-          name: Run cargo clippy with opencl and multiexp features
-          command: cargo clippy --workspace --all-targets --no-default-features --features opencl,multiexp -- -D warnings
+          command: cargo clippy --workspace --all-targets --no-default-features --features opencl -- -D warnings
 
   build:
     executor: default
@@ -147,6 +134,7 @@ jobs:
       - *restore-workspace
       - *restore-cache
       - set-env-path
+      - install-gpu-deps
       - run:
           name: Run cargo release build
           command: cargo build --workspace --release
@@ -180,43 +168,21 @@ workflows:
             - cargo_fetch
       - test:
           name: "Test with default features"
-          no-gpu-deps: true
           requires:
             - cargo_fetch
       - test:
-          name: "Test with no default features"
-          cargo-args: "--no-default-features"
-          no-gpu-deps: true
+          name: "Test with CUDA and OpenCL"
+          cargo-args: "--features cuda,opencl"
           requires:
             - cargo_fetch
       - test:
           name: "Test with CUDA only"
-          cargo-args: "--no-default-features --features cuda,fft,multiexp"
+          cargo-args: "--no-default-features --features cuda"
           requires:
             - cargo_fetch
       - test:
           name: "Test with OpenCL only"
-          cargo-args: "--no-default-features --features opencl,fft,multiexp"
-          requires:
-            - cargo_fetch
-      - test:
-          name: "Test with FFT on CUDA"
-          cargo-args: "--no-default-features --features cuda,fft"
-          requires:
-            - cargo_fetch
-      - test:
-          name: "Test with multiexp on CUDA"
-          cargo-args: "--no-default-features --features cuda,multiexp"
-          requires:
-            - cargo_fetch
-      - test:
-          name: "Test with FFT on OpenCL"
-          cargo-args: "--no-default-features --features opencl,fft"
-          requires:
-            - cargo_fetch
-      - test:
-          name: "Test with multiexp on OpenCL"
-          cargo-args: "--no-default-features --features opencl,multiexp"
+          cargo-args: "--no-default-features --features opencl"
           requires:
             - cargo_fetch
       - build:
