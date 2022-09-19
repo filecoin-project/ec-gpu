@@ -1,5 +1,6 @@
 [workspace]
 members = [
   "ec-gpu",
-  "ec-gpu-gen"
+  "ec-gpu-gen",
+  "gpu-tests",
 ]

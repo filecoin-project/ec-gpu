@@ -20,46 +20,60 @@ Notes:
 
 ## Usage
 
+### Quickstart
+
 Generating CUDA/OpenCL codes for `blstrs` Scalar elements:
 
 ```rust
 use blstrs::Scalar;
-let src = [
-    ec_gpu_gen::common(),
-    ec_gpu_gen::field::<Scalar, ec_gpu_gen::Limb64>("Fr")
-].join("\n");
+use ec_gpu_gen::SourceBuilder;
+
+let source = SourceBuilder::new()
+    .add_field::<Scalar>()
+    .build_64_bit_limbs();
 ```
-Generated interface (`FIELD` is substituted with `Fr`):
 
-```c
-#define FIELD_LIMB_BITS ... // 32/64
-#define FIELD_limb ... // uint/ulong, based on FIELD_LIMB_BITS
-#define FIELD_LIMBS ... // Number of limbs for this field
-#define FIELD_P ... // Normal form of field modulus
-#define FIELD_ONE ... // Montomery form of one
-#define FIELD_ZERO ... // Montomery/normal form of zero
-#define FIELD_BITS (FIELD_LIMBS * FIELD_LIMB_BITS)
+### Integration into your library
 
-typedef struct { FIELD_limb val[FIELD_LIMBS]; } FIELD;
+This crate usually creates GPU kernels at compile-time. CUDA generates a [fatbin], which OpenCL only generates the source code, which is then compiled at run-time.
 
-bool FIELD_gte(FIELD a, FIELD b); // Greater than or equal
-bool FIELD_eq(FIELD a, FIELD b); // Equal
-FIELD FIELD_sub(FIELD a, FIELD b); // Modular subtraction
-FIELD FIELD_add(FIELD a, FIELD b); // Modular addition
-FIELD FIELD_mul(FIELD a, FIELD b); // Modular multiplication
-FIELD FIELD_sqr(FIELD a); // Modular squaring
-FIELD FIELD_double(FIELD a); // Modular doubling
-FIELD FIELD_pow(FIELD base, uint exponent); // Modular power
-FIELD FIELD_pow_lookup(global FIELD *bases, uint exponent); // Modular power with lookup table for bases
-FIELD FIELD_mont(FIELD a); // To montgomery form
-FIELD FIELD_unmont(FIELD a); // To regular form
-bool FIELD_get_bit(FIELD l, uint i); // Get `i`th bit (From most significant digit)
-uint FIELD_get_bits(FIELD l, uint skip, uint window); // Get `window` consecutive bits, (Starting from `skip`th bit from most significant digit)
+In order to make things easier to use, there are helper functions available. You would put some code into `build.rs`, that generates the kernels, and some code into your library which then consumes those generated kernels. The kernels will be directly embedded into your program/library. If something goes wrong, you will get an error at compile-time.
+
+In this example we will make use of the FFT functionality. Add to your `build.rs`:
+
+```rust
+use blstrs::Scalar;
+use ec_gpu_gen::SourceBuilder;
+
+fn main() {
+    let source_builder = SourceBuilder::new().add_fft::<Scalar>()
+    ec_gpu_gen::generate(&source_builder);
+}
+```
+
+The `ec_gpu_gen::generate()` takes care of the actual code generation/compilation. It will automatically create a CUDA and/or OpenCL kernel. It will define two environment variables, which are meant for internal use. `_EC_GPU_CUDA_KERNEL_FATBIN` that points to the compiled CUDA kernel, and `_EC_GPU_OPENCL_KERNEL_SOURCE` that points to the generated OpenCL source.
+
+Those variables are then picked up by the `ec_gpu_gen::program!()` macro, which generates a program, for a given GPU device. Using FFT within your library would then look like this:
+
+```rust
+use ec_gpu_gen::{
+    rust_gpu_tools::Device,
+};
+
+let devices = Device::all();
+let programs = devices
+    .iter()
+    .map(|device| ec_gpu_gen::program!(device))
+    .collect::<Result<_, _>>()
+    .expect("Cannot create programs!");
+
+let mut kern = FftKernel::<Fr>::create(programs).expect("Cannot initialize kernel!");
+kern.radix_fft_many(&mut [&mut coeffs], &[omega], &[log_d]).expect("GPU FFT failed!");
 ```
 
 ## Feature flags
 
-This crate contains implementation for [Fast Fourier transform] and multi-exponentiation, those are enabled be default by the `fft` and `multiexp` features. CPU and GPU implementations are available, you can enable CUDA and OpenCL support with the `cuda` and `opencl` feature flags.
+This crate supports CUDA and OpenCL, which can be enabled with the `cuda` and `opencl` feature flags.
 
 ### Environment variables
 
@@ -131,3 +145,4 @@ conditions.
 [deps-link-ec-gpu-gen]: https://deps.rs/repo/github/filecoin-project/ec-gpu
 
 [Fast Fourier transform]: https://en.wikipedia.org/wiki/Fast_Fourier_transform
+[fatbin]: https://en.wikipedia.org/wiki/Fat_binary#Heterogeneous_computing
