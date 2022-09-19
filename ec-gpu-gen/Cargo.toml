@@ -44,5 +44,4 @@ rand_xorshift = "0.3.0"
 [features]
 default = []
 cuda = ["rust-gpu-tools/cuda"]
-# Doesn't work on WASM
 opencl = ["rust-gpu-tools/opencl"]
