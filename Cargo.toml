@@ -4,3 +4,4 @@ members = [
   "ec-gpu-gen",
   "gpu-tests",
 ]
+resolver = "2"
