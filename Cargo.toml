@@ -5,3 +5,6 @@ members = [
   "gpu-tests",
 ]
 resolver = "2"
+
+[patch.crates-io]
+pasta_curves = { git = "https://github.com/filecoin-project/pasta_curves", branch = "halo2-gpu" }
