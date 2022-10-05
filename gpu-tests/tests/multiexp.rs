@@ -13,7 +13,7 @@ use ff::{Field, PrimeField};
 use group::Curve;
 use group::{prime::PrimeCurveAffine, Group};
 use pairing::Engine;
-use pasta_curves::{Ep, EpAffine, Fp};
+use pasta_curves::{Ep, EpAffine, Fq};
 
 fn multiexp_gpu<Q, D, G, S>(
     pool: &Worker,
@@ -62,28 +62,43 @@ fn gpu_multiexp_consistency() {
         let samples = 1 << log_d;
         println!("Testing Multiexp for {} elements...", samples);
 
-        let v = Arc::new(
-            (0..samples)
-                //.map(|_| <Bls12 as Engine>::Fr::random(&mut rng).to_repr())
-                .map(|_| Fp::random(&mut rng).to_repr())
+        let coeffs =  (0..samples)
+                //.map(|_| <Bls12 as Engine>::Fr::random(&mut rng))
+                .map(|_| Fq::random(&mut rng))
+                .collect::<Vec<_>>();
+        let v = Arc::new(coeffs.iter()
+                .map(|coeff| coeff.to_repr())
                 .collect::<Vec<_>>(),
         );
 
-        let mut now = Instant::now();
+        let now = Instant::now();
         let gpu = multiexp_gpu(&pool, (g.clone(), 0), FullDensity, v.clone(), &mut kern).unwrap();
         let gpu_dur = now.elapsed().as_secs() * 1000 + now.elapsed().subsec_millis() as u64;
         println!("GPU took {}ms.", gpu_dur);
 
-        now = Instant::now();
+        #[cfg(feature = "sppark")]
+        let now = Instant::now();
+        #[cfg(feature = "sppark")]
+        let sppark = pasta_msm::pallas(&bases, &coeffs);
+        #[cfg(feature = "sppark")]
+        let sppark_dur = now.elapsed().as_secs() * 1000 + now.elapsed().subsec_millis() as u64;
+        #[cfg(feature = "sppark")]
+        println!("sppark took {}ms.", sppark_dur);
+
+        let now = Instant::now();
         let cpu = multiexp_cpu(&pool, (g.clone(), 0), FullDensity, v.clone())
             .wait()
             .unwrap();
         let cpu_dur = now.elapsed().as_secs() * 1000 + now.elapsed().subsec_millis() as u64;
         println!("CPU took {}ms.", cpu_dur);
 
-        println!("Speedup: x{}", cpu_dur as f32 / gpu_dur as f32);
+        println!("Speedup GPU/CPU: x{}", cpu_dur as f32 / gpu_dur as f32);
+        #[cfg(feature = "sppark")]
+        println!("Speedup sppark/GPU: x{}", gpu_dur as f32 / sppark_dur as f32);
 
         assert_eq!(cpu, gpu);
+        #[cfg(feature = "sppark")]
+        assert_eq!(gpu, sppark);
 
         println!("============================");
 
