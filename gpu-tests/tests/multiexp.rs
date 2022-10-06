@@ -62,11 +62,13 @@ fn gpu_multiexp_consistency() {
         let samples = 1 << log_d;
         println!("Testing Multiexp for {} elements...", samples);
 
-        let coeffs =  (0..samples)
-                //.map(|_| <Bls12 as Engine>::Fr::random(&mut rng))
-                .map(|_| Fq::random(&mut rng))
-                .collect::<Vec<_>>();
-        let v = Arc::new(coeffs.iter()
+        let coeffs = (0..samples)
+            //.map(|_| <Bls12 as Engine>::Fr::random(&mut rng))
+            .map(|_| Fq::random(&mut rng))
+            .collect::<Vec<_>>();
+        let v = Arc::new(
+            coeffs
+                .iter()
                 .map(|coeff| coeff.to_repr())
                 .collect::<Vec<_>>(),
         );
@@ -85,6 +87,15 @@ fn gpu_multiexp_consistency() {
         #[cfg(feature = "sppark")]
         println!("sppark took {}ms.", sppark_dur);
 
+        #[cfg(feature = "halo2")]
+        let now = Instant::now();
+        #[cfg(feature = "halo2")]
+        let halo2 = halo2_proofs::arithmetic::best_multiexp(&coeffs, &bases);
+        #[cfg(feature = "halo2")]
+        let halo2_dur = now.elapsed().as_secs() * 1000 + now.elapsed().subsec_millis() as u64;
+        #[cfg(feature = "halo2")]
+        println!("halo2 took {}ms.", halo2_dur);
+
         let now = Instant::now();
         let cpu = multiexp_cpu(&pool, (g.clone(), 0), FullDensity, v.clone())
             .wait()
@@ -94,11 +105,18 @@ fn gpu_multiexp_consistency() {
 
         println!("Speedup GPU/CPU: x{}", cpu_dur as f32 / gpu_dur as f32);
         #[cfg(feature = "sppark")]
-        println!("Speedup sppark/GPU: x{}", gpu_dur as f32 / sppark_dur as f32);
+        println!(
+            "Speedup sppark/GPU: x{}",
+            gpu_dur as f32 / sppark_dur as f32
+        );
+        #[cfg(feature = "halo2")]
+        println!("Speedup halo2/GPU: x{}", gpu_dur as f32 / halo2_dur as f32);
 
         assert_eq!(cpu, gpu);
         #[cfg(feature = "sppark")]
         assert_eq!(gpu, sppark);
+        #[cfg(feature = "halo2")]
+        assert_eq!(gpu, halo2);
 
         println!("============================");
 
