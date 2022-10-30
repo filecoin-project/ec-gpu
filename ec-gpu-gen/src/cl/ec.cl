@@ -44,6 +44,11 @@ DEVICE POINT_jacobian POINT_double(POINT_jacobian inp) {
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
 DEVICE POINT_jacobian POINT_add_mixed(POINT_jacobian a, POINT_affine b) {
   const FIELD local_zero = FIELD_ZERO;
+
+  if(FIELD_eq(b.x, local_zero) && FIELD_eq(b.y, local_zero)) {
+    return a;
+  }
+
   if(FIELD_eq(a.z, local_zero)) {
     const FIELD local_one = FIELD_ONE;
     a.x = b.x;
