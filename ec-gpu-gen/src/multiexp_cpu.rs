@@ -122,10 +122,10 @@ pub struct DensityTracker {
 }
 
 impl<'a> QueryDensity for &'a DensityTracker {
-    type Iter = bitvec::slice::BitValIter<'a, Lsb0, usize>;
+    type Iter = bitvec::slice::BitValIter<'a, usize, Lsb0>;
 
     fn iter(self) -> Self::Iter {
-        self.bv.iter().by_val()
+        self.bv.iter().by_vals()
     }
 
     fn get_query_size(self) -> Option<usize> {
