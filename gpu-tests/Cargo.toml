@@ -12,6 +12,10 @@ license = "MIT/Apache-2.0"
 publish = false
 
 [dev-dependencies]
+ark-bls12-381 = "0.4.0"
+ark-ec = "0.4.0"
+ark-ff = "0.4.0"
+ark-serialize = "0.4.0"
 blstrs = { version = "0.6.0", features = ["__private_bench"] }
 criterion = "0.3.6"
 ec-gpu = "0.2"
@@ -19,6 +23,7 @@ ec-gpu-gen = { path = "../ec-gpu-gen", default-features = false }
 ff = { version = "0.12.0", default-features = false }
 fil_logger = "0.1.6"
 group = "0.12.0"
+log = "0.4.17"
 pairing = "0.22.0"
 rand = "0.8"
 rayon = "1.5.3"
@@ -28,7 +33,8 @@ blstrs = { version = "0.6.0", features = ["__private_bench"] }
 ec-gpu-gen = { path = "../ec-gpu-gen" }
 
 [features]
-default = ["cuda", "opencl"]
+#default = ["cuda", "opencl"]
+default = []
 cuda = ["blstrs/gpu", "ec-gpu-gen/cuda"]
 opencl = ["blstrs/gpu", "ec-gpu-gen/opencl"]
 

@@ -23,7 +23,7 @@ const MEMORY_PADDING: f64 = 0.2f64;
 const AMPERE: u32 = 8;
 
 /// Divide and ceil to the next value.
-const fn div_ceil(a: usize, b: usize) -> usize {
+pub const fn div_ceil(a: usize, b: usize) -> usize {
     if a % b == 0 {
         a / b
     } else {
@@ -35,7 +35,7 @@ const fn div_ceil(a: usize, b: usize) -> usize {
 ///
 /// Based on empirical results, it turns out that on Nvidia devices with the Ampere architecture,
 /// it's faster to use two times the number of work units.
-const fn work_units(compute_units: u32, compute_capabilities: Option<(u32, u32)>) -> usize {
+pub const fn work_units(compute_units: u32, compute_capabilities: Option<(u32, u32)>) -> usize {
     match compute_capabilities {
         Some((AMPERE, _)) => LOCAL_WORK_SIZE * compute_units as usize * 2,
         _ => LOCAL_WORK_SIZE * compute_units as usize,
