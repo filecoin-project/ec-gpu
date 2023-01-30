@@ -24,6 +24,7 @@ ff = { version = "0.12.0", default-features = false }
 fil_logger = "0.1.6"
 group = "0.12.0"
 log = "0.4.17"
+once_cell = "1.17.0"
 pairing = "0.22.0"
 rand = "0.8"
 rayon = "1.5.3"
