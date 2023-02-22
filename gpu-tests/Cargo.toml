@@ -13,7 +13,7 @@ publish = false
 
 [dev-dependencies]
 blstrs = { version = "0.6.0", features = ["__private_bench"] }
-criterion = "0.3.6"
+criterion = "0.4"
 ec-gpu = "0.2"
 ec-gpu-gen = { path = "../ec-gpu-gen", default-features = false }
 ff = { version = "0.12.0", default-features = false }
