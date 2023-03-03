@@ -31,7 +31,8 @@ KERNEL void POINT_multiexp(
   const POINT_jacobian local_zero = POINT_ZERO;
   for(uint i = 0; i < bucket_len; i++) buckets[i] = local_zero;
 
-  const uint len = (uint)ceil(n / (float)num_groups); // Num of elements in each group
+  // Num of elements in each group. Round the number up (ceil).
+  const uint len = (n + num_groups - 1) / num_groups;
 
   // This thread runs the multiexp algorithm on elements from `nstart` to `nened`
   // on the window [`bits`, `bits` + `w`)
