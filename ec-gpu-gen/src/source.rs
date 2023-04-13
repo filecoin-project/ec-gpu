@@ -737,7 +737,7 @@ mod tests {
     #[cfg(feature = "opencl")]
     impl opencl::KernelArgument for GpuScalar {
         fn push(&self, kernel: &mut opencl::Kernel) {
-            kernel.builder.set_arg(&self.0);
+            unsafe { kernel.builder.set_arg(&self.0) };
         }
     }
 
