@@ -265,8 +265,8 @@ where
         // Create space for the buckets
         let mut buckets = vec![<G as PrimeCurveAffine>::Curve::identity(); (1 << c) - 1];
 
-        let zero = G::Scalar::zero().to_repr();
-        let one = G::Scalar::one().to_repr();
+        let zero = G::Scalar::ZERO.to_repr();
+        let one = G::Scalar::ONE.to_repr();
 
         // only the first round uses this
         let handle_trivial = skip == 0;

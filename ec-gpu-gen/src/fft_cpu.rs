@@ -33,7 +33,7 @@ pub fn serial_fft<F: PrimeField>(a: &mut [F], omega: &F, log_n: u32) {
 
         let mut k = 0;
         while k < n {
-            let mut w = F::one();
+            let mut w = F::ONE;
             for j in 0..m {
                 let mut t = a[(k + j + m) as usize];
                 t *= w;
@@ -67,7 +67,7 @@ pub fn parallel_fft<F: PrimeField>(
 
     let num_threads = 1 << log_threads;
     let log_new_n = log_n - log_threads;
-    let mut tmp = vec![vec![F::zero(); 1 << log_new_n]; num_threads];
+    let mut tmp = vec![vec![F::ZERO; 1 << log_new_n]; num_threads];
     let new_omega = omega.pow_vartime(&[num_threads as u64]);
 
     worker.scope(0, |scope, _| {
@@ -79,7 +79,7 @@ pub fn parallel_fft<F: PrimeField>(
                 let omega_j = omega.pow_vartime(&[j as u64]);
                 let omega_step = omega.pow_vartime(&[(j as u64) << log_new_n]);
 
-                let mut elt = F::one();
+                let mut elt = F::ONE;
                 for (i, tmp) in tmp.iter_mut().enumerate() {
                     for s in 0..num_threads {
                         let idx = (i + (s << log_new_n)) % (1 << log_n);
@@ -127,7 +127,7 @@ mod tests {
     fn omega<F: PrimeField>(num_coeffs: usize) -> F {
         // Compute omega, the 2^exp primitive root of unity
         let exp = (num_coeffs as f32).log2().floor() as u32;
-        let mut omega = F::root_of_unity();
+        let mut omega = F::ROOT_OF_UNITY;
         for _ in exp..F::S {
             omega = omega.square();
         }

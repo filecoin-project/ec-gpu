@@ -723,7 +723,7 @@ mod tests {
     pub struct GpuScalar(pub Scalar);
     impl Default for GpuScalar {
         fn default() -> Self {
-            Self(Scalar::zero())
+            Self(Scalar::ZERO)
         }
     }
 
