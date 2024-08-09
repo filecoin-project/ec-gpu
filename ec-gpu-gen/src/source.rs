@@ -683,7 +683,7 @@ fn generate_opencl(source_builder: &SourceBuilder) -> PathBuf {
     // build.
     let source_path: PathBuf = [&out_dir, "kernel.cl"].iter().collect();
 
-    fs::write(&source_path, &kernel_source).unwrap_or_else(|_| {
+    fs::write(&source_path, kernel_source).unwrap_or_else(|_| {
         panic!(
             "Cannot write kernel source at {}.",
             source_path.to_str().unwrap()

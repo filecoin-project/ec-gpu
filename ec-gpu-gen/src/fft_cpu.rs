@@ -29,7 +29,7 @@ pub fn serial_fft<F: PrimeField>(a: &mut [F], omega: &F, log_n: u32) {
 
     let mut m = 1;
     for _ in 0..log_n {
-        let w_m = omega.pow_vartime(&[u64::from(n / (2 * m))]);
+        let w_m = omega.pow_vartime([u64::from(n / (2 * m))]);
 
         let mut k = 0;
         while k < n {
@@ -68,7 +68,7 @@ pub fn parallel_fft<F: PrimeField>(
     let num_threads = 1 << log_threads;
     let log_new_n = log_n - log_threads;
     let mut tmp = vec![vec![F::ZERO; 1 << log_new_n]; num_threads];
-    let new_omega = omega.pow_vartime(&[num_threads as u64]);
+    let new_omega = omega.pow_vartime([num_threads as u64]);
 
     worker.scope(0, |scope, _| {
         let a = &*a;
@@ -76,8 +76,8 @@ pub fn parallel_fft<F: PrimeField>(
         for (j, tmp) in tmp.iter_mut().enumerate() {
             scope.execute(move || {
                 // Shuffle into a sub-FFT
-                let omega_j = omega.pow_vartime(&[j as u64]);
-                let omega_step = omega.pow_vartime(&[(j as u64) << log_new_n]);
+                let omega_j = omega.pow_vartime([j as u64]);
+                let omega_step = omega.pow_vartime([(j as u64) << log_new_n]);
 
                 let mut elt = F::ONE;
                 for (i, tmp) in tmp.iter_mut().enumerate() {
