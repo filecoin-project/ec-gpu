@@ -1,0 +1,87 @@
+name: CI
+
+on: [pull_request, push]
+
+# Cancel a job if there's a new on on the same branch started.
+# Based on https://stackoverflow.com/questions/58895283/stop-already-running-workflow-job-in-github-actions/67223051#67223051
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+  # Faster crates.io index checkout.
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
+jobs:
+  set-msrv:
+    runs-on: ubuntu-latest
+    outputs:
+      msrv: ${{ steps.msrv.outputs.MSRV }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get MSRV from rust-toolchain
+        id: msrv
+        run: |
+          MSRV=$(cat ./rust-toolchain)
+          echo "MSRV=$MSRV" | tee --append "$GITHUB_OUTPUT"
+
+  linux:
+    needs: set-msrv
+    runs-on: ubuntu-latest
+    name: Build and test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{needs.set-msrv.outputs.msrv}}
+      - name: Install required packages
+        run: sudo apt install --no-install-recommends --yes ocl-icd-opencl-dev nvidia-cuda-toolkit
+      - name: Build with default features
+        run: cargo build --workspace
+      # Machine has no GPU installed, hence run without the `cuda` or `opencl` feature.
+      - name: Run tests without default features
+        run: cargo test --workspace --no-default-features -- --nocapture
+
+  clippy_check:
+    needs: set-msrv
+    runs-on: ubuntu-latest
+    name: Clippy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ needs.set-msrv.outputs.msrv }}
+          components: clippy
+      - name: Install required packages
+        run: sudo apt install --no-install-recommends --yes ocl-icd-opencl-dev nvidia-cuda-dev
+      - name: Run cargo clippy default features
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Run cargo clippy with cuda and opencl features
+        run: cargo clippy --workspace --all-targets --features cuda,opencl -- -D warnings
+      - name: Run cargo clippy with cuda feature
+        run: cargo clippy --workspace --all-targets --no-default-features --features cuda -- -D warnings
+      - name: Run cargo clippy with opencl feature
+        run: cargo clippy --workspace --all-targets --no-default-features --features opencl -- -D warnings
+
+  check_fmt_and_docs:
+    needs: set-msrv
+    runs-on: ubuntu-latest
+    name: Checking fmt and docs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ needs.set-msrv.outputs.msrv }}
+          components: rustfmt
+      - name: fmt
+        run: cargo fmt --all -- --check
+      - name: Docs
+        env:
+          # Making sure that the documentation can be built without having the NVIDIA toolkit
+          # installed.
+          DOCS_RS: true
+        run: |
+          cargo rustdoc --package ec-gpu --all-features -- -D warnings
+          cargo rustdoc --package ec-gpu-gen --all-features -- -D warnings
