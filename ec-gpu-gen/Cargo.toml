@@ -1,6 +1,6 @@
 [package]
 name = "ec-gpu-gen"
-version = "0.7.0"
+version = "0.7.1"
 authors = ["dignifiedquire <me@dignifiedquire.com>"]
 edition = "2021"
 description = "Code generator for field and eliptic curve operations on the GPUs"
