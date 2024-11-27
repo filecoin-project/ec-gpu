@@ -6,8 +6,8 @@ name = "gpu-tests"
 version = "0.1.0"
 edition = "2021"
 description = "Test for the ec-gpu project"
-homepage = "https://github.com/filecoin-project/ec-gen"
-repository = "https://github.com/filecoin-project/ec-gen"
+homepage = "https://github.com/filecoin-project/ec-gpu"
+repository = "https://github.com/filecoin-project/ec-gpu"
 license = "MIT/Apache-2.0"
 publish = false
 
