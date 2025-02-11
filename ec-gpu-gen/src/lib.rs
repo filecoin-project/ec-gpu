@@ -42,7 +42,7 @@
 //! Feature flags
 //! -------------
 //!
-//! CUDA and OpenCL are supprted, each be enabled with the `cuda` and `opencl` [feature flags].
+//! CUDA and OpenCL are supported, each be enabled with the `cuda` and `opencl` [feature flags].
 //!
 //! [fatbin]: https://en.wikipedia.org/wiki/Fat_binary#Heterogeneous_computing
 //! [feature flags]: https://doc.rust-lang.org/cargo/reference/manifest.html#the-features-section
