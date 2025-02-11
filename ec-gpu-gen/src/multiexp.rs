@@ -216,7 +216,7 @@ where
     }
 }
 
-/// A struct that containts several multiexp kernels for different devices.
+/// A struct that contains several multiexp kernels for different devices.
 pub struct MultiexpKernel<'a, G>
 where
     G: PrimeCurveAffine,
