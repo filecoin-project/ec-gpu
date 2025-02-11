@@ -224,7 +224,7 @@ fn shr(le_bytes: &mut [u8], mut n: u32) {
     }
 
     // Starting at the most significant byte, shift the byte's `n` least significant bits into the
-    // `n` most signficant bits of the next byte.
+    // `n` most significant bits of the next byte.
     if n > 0 {
         let mut shift_in = 0;
         for byte in le_bytes.iter_mut().rev() {
