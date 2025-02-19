@@ -87,7 +87,7 @@ where
 
 /// The size of the exponent in bytes.
 ///
-/// It's the actual bytes size it needs in memory, not it's theoratical bit size.
+/// It's the actual bytes size it needs in memory, not it's theoretical bit size.
 fn exp_size<F: PrimeField>() -> usize {
     std::mem::size_of::<F::Repr>()
 }
