@@ -573,7 +573,7 @@ where
     Ok(result)
 }
 
-/// Convience function to generate a kernel/source based on a source builder.
+/// Convenience function to generate a kernel/source based on a source builder.
 ///
 /// When the `cuda` feature is enabled it will compile a CUDA fatbin. The path to the file is
 /// stored in the `_EC_GPU_CUDA_KERNEL_FATBIN` environment variable, that will automatically be
