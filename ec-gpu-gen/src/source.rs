@@ -323,7 +323,7 @@ impl SourceBuilder {
             .map(|multiexp| multiexp.source(limb_size))
             .collect();
         let extra_sources = self.extra_sources.join("\n");
-        vec![
+        [
             COMMON_SRC.to_string(),
             fields,
             extension_fields,
@@ -599,7 +599,7 @@ fn generate_cuda(source_builder: &SourceBuilder) -> PathBuf {
     // This is a hack when no properly compiled kernel is needed. That's the case when the
     // documentation is built on docs.rs and when Clippy is run. We can use arbitrary bytes as
     // input then.
-    if env::var("DOCS_RS").is_ok() || cfg!(feature = "cargo-clippy") {
+    if env::var("DOCS_RS").is_ok() || cfg!(clippy) {
         println!("cargo:rustc-env=_EC_GPU_CUDA_KERNEL_FATBIN=../build.rs");
         return PathBuf::from("../build.rs");
     }
@@ -630,7 +630,7 @@ fn generate_cuda(source_builder: &SourceBuilder) -> PathBuf {
     // rebuilt if any of them change.
     let mut hasher = Sha256::new();
     hasher.update(kernel_source.as_bytes());
-    hasher.update(&format!("{:?}", &nvcc));
+    hasher.update(format!("{:?}", &nvcc));
     let kernel_digest = hex::encode(hasher.finalize());
 
     let source_path: PathBuf = [&out_dir, &format!("{}.cu", &kernel_digest)]
