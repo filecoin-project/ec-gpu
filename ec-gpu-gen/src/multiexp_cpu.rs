@@ -99,7 +99,7 @@ impl AsRef<FullDensity> for FullDensity {
     }
 }
 
-impl<'a> QueryDensity for &'a FullDensity {
+impl QueryDensity for &FullDensity {
     type Iter = iter::Repeat<bool>;
 
     fn iter(self) -> Self::Iter {

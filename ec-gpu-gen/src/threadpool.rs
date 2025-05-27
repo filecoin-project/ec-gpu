@@ -133,7 +133,7 @@ fn log2_floor(num: usize) -> u32 {
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use super::*;
 
     #[test]
