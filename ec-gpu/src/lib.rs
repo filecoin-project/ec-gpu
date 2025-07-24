@@ -5,7 +5,7 @@ pub trait GpuName {
     /// To make the uniqueness easier to implement, use the [`name`] macro. It produces a unique
     /// name, based on the module path and the type of the item itself. That identifier might not
     /// be stable across different versions of a crate, but this is OK as kernel sources/binaries
-    /// are always bundled with a library and not re-used between versions.
+    /// are always bundled with a library and not reused between versions.
     ///
     /// # Example
     ///
