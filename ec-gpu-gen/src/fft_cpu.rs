@@ -53,7 +53,7 @@ pub fn serial_fft<F: PrimeField>(a: &mut [F], omega: &F, log_n: u32) {
 
 /// Calculate the Fast Fourier Transform on the CPU (multithreaded).
 ///
-/// The result is is written to the input `a`.
+/// The result is written to the input `a`.
 /// The number of threads used will be `2^log_threads`.
 /// There must be more items to process than threads.
 pub fn parallel_fft<F: PrimeField>(
