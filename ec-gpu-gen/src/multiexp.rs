@@ -6,7 +6,10 @@ use ff::PrimeField;
 use group::{prime::PrimeCurveAffine, Group};
 use log::{error, info};
 use rust_gpu_tools::{program_closures, Device, Program};
+#[cfg(not(target_arch = "wasm32"))]
 use yastl::Scope;
+#[cfg(target_arch = "wasm32")]
+use crate::threadpool::WasmScope as Scope;
 
 use crate::{
     error::{EcError, EcResult},
