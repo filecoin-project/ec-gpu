@@ -142,7 +142,7 @@ mod wasm {
             R: Send + 'static,
         {
             let result = f();
-            Waiter { value: Some(result) }
+            Waiter { value: std::cell::RefCell::new(Some(result)) }
         }
 
         /// Executes with chunk_size = elements (single thread processes everything).
@@ -188,19 +188,18 @@ mod wasm {
 
     /// A future that already has its value (computed synchronously).
     pub struct Waiter<T> {
-        value: Option<T>,
+        value: std::cell::RefCell<Option<T>>,
     }
 
     impl<T> Waiter<T> {
-        pub fn wait(&self) -> T
-        where
-            T: Clone,
-        {
-            self.value.as_ref().expect("Waiter::wait called on empty waiter").clone()
+        /// Takes the value. Panics if called more than once.
+        pub fn wait(&self) -> T {
+            self.value.borrow_mut().take()
+                .expect("Waiter::wait called on already-consumed waiter")
         }
 
         pub fn done(val: T) -> Self {
-            Waiter { value: Some(val) }
+            Waiter { value: std::cell::RefCell::new(Some(val)) }
         }
     }
 
