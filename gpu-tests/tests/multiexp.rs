@@ -29,7 +29,7 @@ where
 {
     let exps = density_map.as_ref().generate_exps::<G::Scalar>(exponents);
     let (bss, skip) = bases.get();
-    kern.multiexp(pool, bss, exps, skip).map_err(Into::into)
+    kern.multiexp(pool, bss, exps, skip)
 }
 
 #[test]
@@ -47,7 +47,7 @@ fn gpu_multiexp_consistency() {
         .expect("Cannot initialize kernel!");
     let pool = Worker::new();
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let mut bases = (0..(1 << START_LOG_D))
         .map(|_| <Bls12 as Engine>::G1::random(&mut rng).to_affine())

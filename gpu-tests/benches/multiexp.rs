@@ -33,11 +33,11 @@ fn bench_multiexp(crit: &mut Criterion) {
     let pool = Worker::new();
     let max_bases: Vec<_> = (0..MAX_ELEMENTS)
         .into_par_iter()
-        .map(|_| <Bls12 as Engine>::G1::random(rand::thread_rng()).to_affine())
+        .map(|_| <Bls12 as Engine>::G1::random(&mut rand::rng()).to_affine())
         .collect();
     let max_exponents: Vec<_> = (0..MAX_ELEMENTS)
         .into_par_iter()
-        .map(|_| <Bls12 as Engine>::Fr::random(rand::thread_rng()).to_repr())
+        .map(|_| <Bls12 as Engine>::Fr::random(&mut rand::rng()).to_repr())
         .collect();
 
     let num_elements: Vec<_> = (10..MAX_ELEMENTS_POWER).map(|shift| 1 << shift).collect();

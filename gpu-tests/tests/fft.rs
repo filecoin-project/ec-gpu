@@ -24,7 +24,7 @@ fn omega<F: PrimeField>(num_coeffs: usize) -> F {
 #[test]
 pub fn gpu_fft_consistency() {
     fil_logger::maybe_init();
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let worker = Worker::new();
     let log_threads = worker.log_num_threads();
@@ -71,7 +71,7 @@ pub fn gpu_fft_consistency() {
 #[test]
 pub fn gpu_fft_many_consistency() {
     fil_logger::maybe_init();
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let worker = Worker::new();
     let log_threads = worker.log_num_threads();

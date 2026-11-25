@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use bitvec::prelude::{BitVec, Lsb0};
 use ff::{Field, PrimeField};
-use group::{prime::PrimeCurveAffine, Group};
+use group::{prime::PrimeCurveAffine, CurveAffine, Group};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
 use crate::error::EcError;
@@ -25,7 +25,7 @@ pub trait SourceBuilder<G: PrimeCurveAffine>: Send + Sync + 'static + Clone {
 /// A source of bases, like an iterator.
 pub trait Source<G: PrimeCurveAffine> {
     /// Parses the element from the source. Fails if the point is at infinity.
-    fn add_assign_mixed(&mut self, to: &mut <G as PrimeCurveAffine>::Curve) -> Result<(), EcError>;
+    fn add_assign_mixed(&mut self, to: &mut <G as CurveAffine>::Curve) -> Result<(), EcError>;
 
     /// Skips `amt` elements from the source, avoiding deserialization.
     fn skip(&mut self, amt: usize) -> Result<(), EcError>;
@@ -44,7 +44,7 @@ impl<G: PrimeCurveAffine> SourceBuilder<G> for (Arc<Vec<G>>, usize) {
 }
 
 impl<G: PrimeCurveAffine> Source<G> for (Arc<Vec<G>>, usize) {
-    fn add_assign_mixed(&mut self, to: &mut <G as PrimeCurveAffine>::Curve) -> Result<(), EcError> {
+    fn add_assign_mixed(&mut self, to: &mut <G as CurveAffine>::Curve) -> Result<(), EcError> {
         if self.0.len() <= self.1 {
             return Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
@@ -244,7 +244,7 @@ fn multiexp_inner<Q, D, G, S>(
     density_map: D,
     exponents: Arc<Vec<<G::Scalar as PrimeField>::Repr>>,
     c: u32,
-) -> Result<<G as PrimeCurveAffine>::Curve, EcError>
+) -> Result<<G as CurveAffine>::Curve, EcError>
 where
     for<'a> &'a Q: QueryDensity,
     D: Send + Sync + 'static + Clone + AsRef<Q>,
@@ -264,7 +264,7 @@ where
         let mut bases = bases.new();
 
         // Create space for the buckets
-        let mut buckets = vec![<G as PrimeCurveAffine>::Curve::identity(); (1 << c) - 1];
+        let mut buckets = vec![<G as CurveAffine>::Curve::identity(); (1 << c) - 1];
 
         let zero = G::Scalar::ZERO.to_repr();
         let one = G::Scalar::ONE.to_repr();
@@ -316,17 +316,17 @@ where
         .map(|skip| this(bases.clone(), density_map.clone(), exponents.clone(), skip))
         .collect::<Vec<Result<_, _>>>();
 
-    parts.into_iter().rev().try_fold(
-        <G as PrimeCurveAffine>::Curve::identity(),
-        |mut acc, part| {
+    parts
+        .into_iter()
+        .rev()
+        .try_fold(<G as CurveAffine>::Curve::identity(), |mut acc, part| {
             for _ in 0..c {
                 acc = acc.double();
             }
 
             acc.add_assign(&part?);
             Ok(acc)
-        },
-    )
+        })
 }
 
 /// Perform multi-exponentiation. The caller is responsible for ensuring the
@@ -336,7 +336,7 @@ pub fn multiexp_cpu<'b, Q, D, G, S>(
     bases: S,
     density_map: D,
     exponents: Arc<Vec<<G::Scalar as PrimeField>::Repr>>,
-) -> Waiter<Result<<G as PrimeCurveAffine>::Curve, EcError>>
+) -> Waiter<Result<<G as CurveAffine>::Curve, EcError>>
 where
     for<'a> &'a Q: QueryDensity,
     D: Send + Sync + 'static + Clone + AsRef<Q>,
@@ -365,7 +365,7 @@ mod tests {
     use blstrs::Bls12;
     use group::Curve;
     use pairing::Engine;
-    use rand::Rng;
+    use rand::RngExt;
     use rand_core::SeedableRng;
     use rand_xorshift::XorShiftRng;
 
@@ -388,7 +388,7 @@ mod tests {
 
         const SAMPLES: usize = 1 << 14;
 
-        let rng = &mut rand::thread_rng();
+        let rng = &mut rand::rng();
         let v: Vec<<Bls12 as Engine>::Fr> = (0..SAMPLES)
             .map(|_| <Bls12 as Engine>::Fr::random(&mut *rng))
             .collect();
@@ -432,13 +432,13 @@ mod tests {
                     }
 
                     let index: usize = i / k;
-                    if rng.gen() {
+                    if rng.random() {
                         tracker_full.add_element();
                         partial_trackers[index].add_element();
                     }
 
                     if !partial_trackers[index].bv.is_empty() {
-                        let idx = rng.gen_range(0..partial_trackers[index].bv.len());
+                        let idx = rng.random_range(0..partial_trackers[index].bv.len());
                         let offset: usize = partial_trackers
                             .iter()
                             .take(index)
@@ -475,15 +475,15 @@ mod tests {
         let unset = |rng: &mut XorShiftRng| {
             let mut dt = DensityTracker::new();
             dt.add_element();
-            let n = rng.gen_range(1..max_bits);
-            let target_density = rng.gen_range(0..max_density);
+            let n = rng.random_range(1..max_bits);
+            let target_density = rng.random_range(0..max_density);
             for _ in 1..n {
                 dt.add_element();
             }
 
             for _ in 0..target_density {
                 if n > 1 {
-                    let to_inc = rng.gen_range(1..n);
+                    let to_inc = rng.random_range(1..n);
                     dt.inc(to_inc);
                 }
             }

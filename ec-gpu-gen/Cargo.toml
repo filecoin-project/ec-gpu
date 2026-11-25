@@ -7,15 +7,15 @@ description = "Code generator for field and elliptic curve operations on the GPU
 homepage = "https://github.com/filecoin-project/ff-cl-gen"
 repository = "https://github.com/filecoin-project/ff-cl-gen"
 license = "MIT/Apache-2.0"
-rust-version = "1.83.0"
+rust-version = "1.85.0"
 
 [dependencies]
 bitvec = "1.0.1"
 crossbeam-channel = "0.5.1"
 ec-gpu = "0.2.0"
 execute = "0.2.9"
-ff = { version = "0.13.0", default-features = false }
-group = "0.13.0"
+ff = { version = "0.14.0", default-features = false }
+group = "0.14.0"
 hex = "0.4"
 log = "0.4.14"
 num_cpus = "1.13.0"
@@ -31,13 +31,13 @@ yastl = "0.1.2"
 # temporarily until https://github.com/zkcrypto/group/pull/29 is fixed. Then
 # we won't need the exports of `Fp` and `Fp2` any more.
 #blstrs = { version = "0.6.0", features = ["__private_bench"], optional = true }
-blstrs = { version = "0.7.0", features = ["__private_bench", "gpu"] }
-rand = "0.8"
+blstrs = { version = "0.8.0", features = ["__private_bench", "gpu"] }
+rand = "0.10"
 lazy_static = "1.2"
-pairing = "0.23.0"
+pairing = "0.24.0"
 temp-env = "0.3.0"
-rand_core = "0.6.3"
-rand_xorshift = "0.3.0"
+rand_core = "0.10.0"
+rand_xorshift = "0.5.0"
 
 [features]
 default = []

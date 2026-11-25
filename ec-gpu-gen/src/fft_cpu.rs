@@ -122,7 +122,7 @@ mod tests {
 
     use blstrs::Scalar as Fr;
     use ff::PrimeField;
-    use rand_core::RngCore;
+    use rand_core::Rng;
 
     fn omega<F: PrimeField>(num_coeffs: usize) -> F {
         // Compute omega, the 2^exp primitive root of unity
@@ -136,7 +136,7 @@ mod tests {
 
     #[test]
     fn parallel_fft_consistency() {
-        fn test_consistency<F: PrimeField, R: RngCore>(rng: &mut R) {
+        fn test_consistency<F: PrimeField, R: Rng>(rng: &mut R) {
             let worker = Worker::new();
 
             for _ in 0..5 {
@@ -158,7 +158,7 @@ mod tests {
             }
         }
 
-        let rng = &mut rand::thread_rng();
+        let rng = &mut rand::rng();
 
         test_consistency::<Fr, _>(rng);
     }
