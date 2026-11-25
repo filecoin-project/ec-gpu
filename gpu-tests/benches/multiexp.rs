@@ -1,7 +1,8 @@
+use std::hint::black_box;
 use std::sync::Arc;
 
 use blstrs::Bls12;
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use ec_gpu_gen::{
     multiexp::MultiexpKernel, multiexp_cpu::SourceBuilder, rust_gpu_tools::Device,
     threadpool::Worker,

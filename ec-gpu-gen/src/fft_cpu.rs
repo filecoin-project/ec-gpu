@@ -103,11 +103,9 @@ pub fn parallel_fft<F: PrimeField>(
 
         for (idx, a) in a.chunks_mut(chunk).enumerate() {
             scope.execute(move || {
-                let mut idx = idx * chunk;
                 let mask = (1 << log_threads) - 1;
-                for a in a {
+                for (idx, a) in (idx * chunk..).zip(a) {
                     *a = tmp[idx & mask][idx >> log_threads];
-                    idx += 1;
                 }
             });
         }

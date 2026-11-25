@@ -630,13 +630,13 @@ fn generate_cuda(source_builder: &SourceBuilder) -> PathBuf {
     // rebuilt if any of them change.
     let mut hasher = Sha256::new();
     hasher.update(kernel_source.as_bytes());
-    hasher.update(format!("{:?}", &nvcc));
+    hasher.update(format!("{:?}", nvcc));
     let kernel_digest = hex::encode(hasher.finalize());
 
-    let source_path: PathBuf = [&out_dir, &format!("{}.cu", &kernel_digest)]
+    let source_path: PathBuf = [&out_dir, &format!("{}.cu", kernel_digest)]
         .iter()
         .collect();
-    let fatbin_path: PathBuf = [&out_dir, &format!("{}.fatbin", &kernel_digest)]
+    let fatbin_path: PathBuf = [&out_dir, &format!("{}.fatbin", kernel_digest)]
         .iter()
         .collect();
 
