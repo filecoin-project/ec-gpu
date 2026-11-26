@@ -1,7 +1,8 @@
+use std::hint::black_box;
 use std::sync::Arc;
 
 use blstrs::Bls12;
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use ec_gpu_gen::{
     multiexp::MultiexpKernel, multiexp_cpu::SourceBuilder, rust_gpu_tools::Device,
     threadpool::Worker,
@@ -33,11 +34,11 @@ fn bench_multiexp(crit: &mut Criterion) {
     let pool = Worker::new();
     let max_bases: Vec<_> = (0..MAX_ELEMENTS)
         .into_par_iter()
-        .map(|_| <Bls12 as Engine>::G1::random(rand::thread_rng()).to_affine())
+        .map(|_| <Bls12 as Engine>::G1::random(&mut rand::rng()).to_affine())
         .collect();
     let max_exponents: Vec<_> = (0..MAX_ELEMENTS)
         .into_par_iter()
-        .map(|_| <Bls12 as Engine>::Fr::random(rand::thread_rng()).to_repr())
+        .map(|_| <Bls12 as Engine>::Fr::random(&mut rand::rng()).to_repr())
         .collect();
 
     let num_elements: Vec<_> = (10..MAX_ELEMENTS_POWER).map(|shift| 1 << shift).collect();

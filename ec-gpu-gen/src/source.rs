@@ -630,13 +630,13 @@ fn generate_cuda(source_builder: &SourceBuilder) -> PathBuf {
     // rebuilt if any of them change.
     let mut hasher = Sha256::new();
     hasher.update(kernel_source.as_bytes());
-    hasher.update(format!("{:?}", &nvcc));
+    hasher.update(format!("{:?}", nvcc));
     let kernel_digest = hex::encode(hasher.finalize());
 
-    let source_path: PathBuf = [&out_dir, &format!("{}.cu", &kernel_digest)]
+    let source_path: PathBuf = [&out_dir, &format!("{}.cu", kernel_digest)]
         .iter()
         .collect();
-    let fatbin_path: PathBuf = [&out_dir, &format!("{}.fatbin", &kernel_digest)]
+    let fatbin_path: PathBuf = [&out_dir, &format!("{}.fatbin", kernel_digest)]
         .iter()
         .collect();
 
@@ -714,7 +714,7 @@ mod tests {
     use blstrs::Scalar;
     use ff::{Field as _, PrimeField};
     use lazy_static::lazy_static;
-    use rand::{thread_rng, Rng};
+    use rand::RngExt;
 
     static TEST_SRC: &str = include_str!("./cl/test.cl");
 
@@ -843,7 +843,7 @@ mod tests {
 
     #[test]
     fn test_add() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..10 {
             let a = Scalar::random(&mut rng);
             let b = Scalar::random(&mut rng);
@@ -858,7 +858,7 @@ mod tests {
 
     #[test]
     fn test_sub() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..10 {
             let a = Scalar::random(&mut rng);
             let b = Scalar::random(&mut rng);
@@ -872,7 +872,7 @@ mod tests {
 
     #[test]
     fn test_mul() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..10 {
             let a = Scalar::random(&mut rng);
             let b = Scalar::random(&mut rng);
@@ -887,10 +887,10 @@ mod tests {
 
     #[test]
     fn test_pow() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..10 {
             let a = Scalar::random(&mut rng);
-            let b = rng.gen::<u32>();
+            let b = rng.random::<u32>();
             let c = a.pow_vartime([b as u64]);
             assert_eq!(call_kernel("test_pow", &[GpuScalar(a)], &[b]), c);
         }
@@ -898,7 +898,7 @@ mod tests {
 
     #[test]
     fn test_sqr() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..10 {
             let a = Scalar::random(&mut rng);
             let b = a.square();
@@ -909,7 +909,7 @@ mod tests {
 
     #[test]
     fn test_double() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..10 {
             let a = Scalar::random(&mut rng);
             let b = a.double();
@@ -920,7 +920,7 @@ mod tests {
 
     #[test]
     fn test_unmont() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..10 {
             let a = Scalar::random(&mut rng);
             let b: Scalar = unsafe { std::mem::transmute(a.to_repr()) };
@@ -930,7 +930,7 @@ mod tests {
 
     #[test]
     fn test_mont() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..10 {
             let a_repr = Scalar::random(&mut rng).to_repr();
             let a: Scalar = unsafe { std::mem::transmute(a_repr) };

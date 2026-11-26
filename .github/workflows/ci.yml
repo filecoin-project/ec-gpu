@@ -1,18 +1,21 @@
 name: CI
 
-on: [pull_request, push]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
 
-# Cancel a job if there's a new one on the same branch started.
-# Based on https://stackoverflow.com/questions/58895283/stop-already-running-workflow-job-in-github-actions/67223051#67223051
 concurrency:
-  group: ${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 env:
   CARGO_INCREMENTAL: 0
   RUST_BACKTRACE: 1
-  # Faster crates.io index checkout.
-  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
 jobs:
   set-msrv:
@@ -20,40 +23,48 @@ jobs:
     outputs:
       msrv: ${{ steps.msrv.outputs.MSRV }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Get MSRV from rust-toolchain
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Get MSRV from ec-gpu-gen
         id: msrv
         run: |
-          MSRV=$(cat ./rust-toolchain)
+          MSRV=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "ec-gpu-gen") | .rust_version')
           echo "MSRV=$MSRV" | tee --append "$GITHUB_OUTPUT"
 
   linux:
     needs: set-msrv
     runs-on: ubuntu-latest
-    name: Build and test
+    name: Build and test (${{ matrix.toolchain }})
+    strategy:
+      matrix:
+        toolchain: [msrv, pinned]
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{needs.set-msrv.outputs.msrv}}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Use the MSRV toolchain
+        if: matrix.toolchain == 'msrv'
+        run: |
+          rustup toolchain install ${{ needs.set-msrv.outputs.msrv }} --profile minimal
+          echo "RUSTUP_TOOLCHAIN=${{ needs.set-msrv.outputs.msrv }}" >> "$GITHUB_ENV"
       - name: Install required packages
         run: sudo apt install --no-install-recommends --yes ocl-icd-opencl-dev nvidia-cuda-toolkit
+      # The MSRV covers the published crates; gpu-tests is unpublished and may need a newer Rust.
+      - name: Select packages
+        run: |
+          if [ "${{ matrix.toolchain }}" = "msrv" ]; then
+            echo "PACKAGES=--workspace --exclude gpu-tests" >> "$GITHUB_ENV"
+          else
+            echo "PACKAGES=--workspace" >> "$GITHUB_ENV"
+          fi
       - name: Build with default features
-        run: cargo build --workspace
+        run: cargo build $PACKAGES
       # Machine has no GPU installed, hence run without the `cuda` or `opencl` feature.
       - name: Run tests without default features
-        run: cargo test --workspace --no-default-features -- --nocapture
+        run: cargo test $PACKAGES --no-default-features -- --nocapture
 
   clippy_check:
-    needs: set-msrv
     runs-on: ubuntu-latest
     name: Clippy
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ needs.set-msrv.outputs.msrv }}
-          components: clippy
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install required packages
         run: sudo apt install --no-install-recommends --yes ocl-icd-opencl-dev nvidia-cuda-dev
       - name: Run cargo clippy default features
@@ -66,15 +77,10 @@ jobs:
         run: cargo clippy --workspace --all-targets --no-default-features --features opencl -- -D warnings
 
   check_fmt_and_docs:
-    needs: set-msrv
     runs-on: ubuntu-latest
     name: Checking fmt and docs
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ needs.set-msrv.outputs.msrv }}
-          components: rustfmt
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: fmt
         run: cargo fmt --all -- --check
       - name: Docs
